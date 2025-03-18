@@ -251,8 +251,10 @@ class Dependencies:
                     __file__, "--only-elevated --skip-python"
                 )
 
-        qt = qt_utils.WindowsQt(*self.config.get_qt_config())
-        qt.install()
+        # AQT seems broken on Windows CI, so let CI worry about that dep.
+        if not self.ci_env:
+          qt = qt_utils.WindowsQt(*self.config.get_qt_config())
+          qt.install()
 
         if self.ci_env:
             github.set_env_var(cmake_prefix_env_var, qt.get_install_dir())
