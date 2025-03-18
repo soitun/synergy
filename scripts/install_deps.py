@@ -252,13 +252,12 @@ class Dependencies:
                 )
 
         # AQT seems broken on Windows CI, so let CI worry about that dep.
-        if not self.ci_env:
-          qt = qt_utils.WindowsQt(*self.config.get_qt_config())
-          qt.install()
-
         if self.ci_env:
-            github.set_env_var(cmake_prefix_env_var, qt.get_install_dir())
+            qt_root_dir = os.getenv("QT_ROOT_DIR")
+            github.set_env_var(cmake_prefix_env_var, qt_root_dir)
         else:
+            qt = qt_utils.WindowsQt(*self.config.get_qt_config())
+            qt.install()
             windows.set_env_var(cmake_prefix_env_var, qt.get_install_dir())
 
         command = self.config.get_os_deps_command()
