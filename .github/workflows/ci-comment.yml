@@ -47,7 +47,7 @@ jobs:
 
             console.log(`Version: ${version}`);
 
-            const sha = github.event.inputs?.sha || github.event.workflow_run.head_sha;
+            const sha = "${{ github.event.inputs.sha }}" || "${{ github.event.workflow_run.head_sha }}";
             if (!sha) {
               console.log('No Git SHA found, skipping.');
               return;
