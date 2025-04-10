@@ -18,6 +18,10 @@
 
 #include "MainWindow.h"
 
+#ifdef DESKFLOW_GUI_HOOK_HEADER
+#include DESKFLOW_GUI_HOOK_HEADER
+#endif
+
 #include "AboutDialog.h"
 #include "ServerConfigDialog.h"
 #include "common/constants.h"
@@ -81,6 +85,9 @@ MainWindow::MainWindow(ConfigScopes &configScopes, AppConfig &appConfig)
       m_TlsUtility(appConfig),
       m_WindowSaveTimer(this)
 {
+#ifdef DESKFLOW_GUI_HOOK_MAIN_WINDOW
+  DESKFLOW_GUI_HOOK_MAIN_WINDOW
+#endif
 
   setupUi(this);
   createMenuBar();
@@ -849,10 +856,11 @@ void MainWindow::onCoreProcessStateChanged(CoreProcessState state)
 {
   updateStatus();
 
-  if (state == CoreProcessState::Started) {
+  if (state == CoreProcessState::Started && !m_AppConfig.startedBefore()) {
     qDebug("recording that core has started");
     m_AppConfig.setStartedBefore(true);
     m_ConfigScopes.save();
+    messages::showFirstServerStartMessage(this);
   }
 
   if (state == CoreProcessState::Started || state == CoreProcessState::Starting ||
@@ -1032,7 +1040,6 @@ void MainWindow::enableServer(bool enable)
     if (!m_AppConfig.startedBefore()) {
       qDebug("auto-starting core server for first time");
       m_CoreProcess.start();
-      messages::showFirstServerStartMessage(this);
     }
   }
 }

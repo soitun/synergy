@@ -16,6 +16,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifdef DESKFLOW_GUI_HOOK_HEADER
+#include DESKFLOW_GUI_HOOK_HEADER
+#endif
+
 #include "arch/Arch.h"
 #include "base/Log.h"
 #include "shared/ExitTimeout.h"
@@ -33,6 +37,10 @@ const auto testDir = "tmp/test";
 
 int main(int argc, char **argv)
 {
+#ifdef DESKFLOW_GUI_HOOK_TEST_START
+  DESKFLOW_GUI_HOOK_TEST_START
+#endif
+
   // HACK: Unit tests should not use the filesystem.
   std::filesystem::create_directories(testDir);
 

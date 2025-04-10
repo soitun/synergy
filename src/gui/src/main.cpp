@@ -16,6 +16,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifdef DESKFLOW_GUI_HOOK_HEADER
+#include DESKFLOW_GUI_HOOK_HEADER
+#endif
+
 #include "DeskflowApplication.h"
 #include "MainWindow.h"
 #include "SetupWizard.h"
@@ -29,11 +33,6 @@
 #include "gui/dotenv.h"
 #include "gui/messages.h"
 #include "gui/string_utils.h"
-#include "gui_config.h" // IWYU pragma: keep
-
-#ifdef DESKFLOW_GUI_HOOK_HEADER
-#include DESKFLOW_GUI_HOOK_HEADER
-#endif
 
 #include <QApplication>
 #include <QDebug>
@@ -147,8 +146,8 @@ int main(int argc, char *argv[])
 
   mainWindow.open();
 
-#ifdef DESKFLOW_GUI_HOOK_START
-  DESKFLOW_GUI_HOOK_START
+#ifdef DESKFLOW_GUI_HOOK_APP_START
+  DESKFLOW_GUI_HOOK_APP_START
 #endif
 
 #ifdef SYNERGY_VERSION_CHECK

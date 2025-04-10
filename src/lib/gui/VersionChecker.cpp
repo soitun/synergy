@@ -17,12 +17,11 @@
 
 #include "VersionChecker.h"
 
-#include "common/constants.h"
-#include "gui_config.h" // IWYU pragma: keep
-
 #ifdef DESKFLOW_GUI_HOOK_HEADER
 #include DESKFLOW_GUI_HOOK_HEADER
 #endif
+
+#include "common/constants.h"
 
 #include <QLocale>
 #include <QNetworkAccessManager>

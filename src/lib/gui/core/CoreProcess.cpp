@@ -6,6 +6,10 @@
 
 #include "CoreProcess.h"
 
+#ifdef DESKFLOW_GUI_HOOK_HEADER
+#include DESKFLOW_GUI_HOOK_HEADER
+#endif
+
 #include "common/constants.h"
 #include "gui/config/IAppConfig.h"
 #include "gui/core/CoreTool.h"
@@ -347,6 +351,10 @@ void CoreProcess::handleLogLines(const QString &text)
 
 void CoreProcess::start(std::optional<ProcessMode> processModeOption)
 {
+#ifdef DESKFLOW_GUI_HOOK_CORE_START
+  DESKFLOW_GUI_HOOK_CORE_START
+#endif
+
   QMutexLocker locker(&m_processMutex);
 
   const auto processMode = processModeOption.value_or(m_appConfig.processMode());
