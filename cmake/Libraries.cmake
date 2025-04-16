@@ -112,12 +112,7 @@ macro(configure_unix_libs)
     configure_xorg_libs()
     configure_wayland_libs()
 
-    FetchContent_Declare(
-      pugixml
-      GIT_REPOSITORY https://github.com/zeux/pugixml.git
-      GIT_TAG v1.13
-    )
-    FetchContent_MakeAvailable(pugixml)
+    find_package(pugixml REQUIRED)
 
     find_package(PkgConfig)
     if(PKG_CONFIG_FOUND)
