@@ -48,6 +48,7 @@ config:
           libgtk-3-dev \
           libgtest-dev \
           libgmock-dev \
+          libpugixml-dev \
           libei-dev \
           libportal-dev
         optional: [libei-dev, libportal-dev]
@@ -79,6 +80,7 @@ config:
           gtk3-devel \
           gtest-devel \
           gmock-devel \
+          pugixml-devel \
           libei-devel \
           libportal-devel
         optional: [libei-devel, libportal-devel]
@@ -124,6 +126,7 @@ config:
           gtk3-devel \
           googletest-devel \
           googlemock-devel \
+          pugixml-devel \
           libei-devel \
           libportal-devel
 
@@ -141,6 +144,7 @@ config:
           libnotify \
           libxkbfile \
           gtest \
+          pugixml \
           libei \
           libportal \
           qt6-base \
