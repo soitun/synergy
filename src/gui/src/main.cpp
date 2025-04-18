@@ -123,6 +123,8 @@ int main(int argc, char *argv[])
 
   AppConfig appConfig(configScopes);
 
+  Logger::instance().setLogLevel(appConfig.logLevel());
+
   QObject::connect(
       &configScopes, &ConfigScopes::saving, &appConfig, [&appConfig]() { appConfig.commit(); }, Qt::DirectConnection
   );
