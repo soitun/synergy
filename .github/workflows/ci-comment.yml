@@ -21,7 +21,7 @@ on:
 
 jobs:
   version:
-    if: startsWith(github.event.workflow_run.head_branch, 'master') || github.event_name == 'workflow_dispatch'
+    if: ${{ github.event_name != 'schedule' && (startsWith(github.event.workflow_run.head_branch, 'master') || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-latest
 
     steps:
