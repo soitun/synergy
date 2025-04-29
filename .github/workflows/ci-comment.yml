@@ -12,23 +12,17 @@ name: CI comment
 on:
   workflow_dispatch:
     inputs:
-      sha:
-        description: 'Git SHA to comment on'
+      test-sha:
+        description: "Test Git SHA for PR to comment on"
   workflow_run:
     workflows: ["CI"]
     types:
       - completed
 
 jobs:
-  version: 
-    if: |
-      ${{
-        github.event.workflow_run.event != 'schedule' &&
-        (
-          startsWith(github.event.workflow_run.head_branch, 'master')  ||
-          github.event_name == 'workflow_dispatch'
-        )
-      }}
+  merge-comment:
+    if: github.event.workflow_run.event == 'push' || github.event_name == 'workflow_dispatch'
+    name: PR merge comment
     runs-on: ubuntu-latest
 
     steps:
@@ -43,31 +37,18 @@ jobs:
         uses: ./.github/actions/get-version
 
       - name: Comment on merged PR
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
+            const { prMergeComment } = require('./.github/scripts/pr-merge-comment.js');
             const version = "${{ steps.get-version.outputs.version }}";
-            const sha = "${{ github.event.inputs.sha }}" || "${{ github.event.workflow_run.head_sha }}";
-            const runId = "${{ github.event.workflow_run.id }}";
-            const runName = "${{ github.event.workflow_run.name }}";
-            const runResult = "${{ github.event.workflow_run.conclusion }}";
-            const repoUrl = "${{ github.server_url }}/${{ github.repository }}";
+            await prMergeComment(github, context, version);
 
-            const prMergeComment = require('./.github/scripts/pr-merge-comment.js');
-            await prMergeComment({
-              github,
-              context,
-              version,
-              sha,
-              runId,
-              runName,
-              runResult,
-              repoUrl
-            });
-                
-  summary:
+  summary-comment:
     if: github.event.workflow_run.event == 'pull_request'
+
     runs-on: ubuntu-latest
+    name: PR summary comment
 
     steps:
       - name: Download summaries
