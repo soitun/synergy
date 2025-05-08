@@ -18,7 +18,7 @@
 
 #include "AppConfig.h"
 
-#include "ConfigScopes.h"
+#include "Settings.h"
 
 #include <QApplication>
 #include <QMessageBox>
@@ -98,79 +98,63 @@ const char *const AppConfig::m_SettingsName[] = {
     "enableLibei",
 };
 
-AppConfig::AppConfig(deskflow::gui::IConfigScopes &scopes, std::shared_ptr<Deps> deps)
-    : m_Scopes(scopes),
+AppConfig::AppConfig(deskflow::gui::ISettings &settings, std::shared_ptr<Deps> deps)
+    : m_Settings(settings),
       m_pDeps(deps),
       m_ScreenName(deps->hostname()),
       m_TlsCertPath(deps->defaultTlsCertPath())
 {
-  determineScope();
+  qDebug("determining config scope");
+  setLoadFromSystemScope(m_Settings.get(settingName(Setting::kLoadSystemSettings)).toBool());
+
   recall();
 }
 
 void AppConfig::recall()
-{
-  using enum AppConfig::Setting;
-
-  qDebug("recalling app config");
-
-  recallFromAllScopes();
-  recallFromCurrentScope();
-}
-
-void AppConfig::recallFromAllScopes()
-{
-  using enum Setting;
-
-  m_WizardLastRun = findInAllScopes(kWizardLastRun, m_WizardLastRun).toInt();
-  m_LoadFromSystemScope = findInAllScopes(kLoadSystemSettings, m_LoadFromSystemScope).toBool();
-}
-
-void AppConfig::recallFromCurrentScope()
 {
   using enum Setting;
 
   recallScreenName();
   recallElevateMode();
 
-  m_Port = getFromCurrentScope(kPort, m_Port).toInt();
-  m_Interface = getFromCurrentScope(kInterface, m_Interface).toString();
-  m_LogLevel = getFromCurrentScope(kLogLevel, m_LogLevel).toInt();
-  m_LogToFile = getFromCurrentScope(kLogToFile, m_LogToFile).toBool();
-  m_LogFilename = getFromCurrentScope(kLogFilename, m_LogFilename).toString();
-  m_StartedBefore = getFromCurrentScope(kStartedBefore, m_StartedBefore).toBool();
-  m_AutoHide = getFromCurrentScope(kAutoHide, m_AutoHide).toBool();
-  m_LastVersion = getFromCurrentScope(kLastVersion, m_LastVersion).toString();
-  m_ServerGroupChecked = getFromCurrentScope(kServerGroupChecked, m_ServerGroupChecked).toBool();
-  m_UseExternalConfig = getFromCurrentScope(kUseExternalConfig, m_UseExternalConfig).toBool();
-  m_ConfigFile = getFromCurrentScope(kConfigFile, m_ConfigFile).toString();
-  m_UseInternalConfig = getFromCurrentScope(kUseInternalConfig, m_UseInternalConfig).toBool();
-  m_ClientGroupChecked = getFromCurrentScope(kClientGroupChecked, m_ClientGroupChecked).toBool();
-  m_ServerHostname = getFromCurrentScope(kServerHostname, m_ServerHostname).toString();
-  m_PreventSleep = getFromCurrentScope(kPreventSleep, m_PreventSleep).toBool();
-  m_LanguageSync = getFromCurrentScope(kLanguageSync, m_LanguageSync).toBool();
-  m_InvertScrollDirection = getFromCurrentScope(kInvertScrollDirection, m_InvertScrollDirection).toBool();
-  m_InvertConnection = getFromCurrentScope(kInvertConnection, m_InvertConnection).toBool();
-  m_EnableService = getFromCurrentScope(kEnableService, m_EnableService).toBool();
-  m_CloseToTray = getFromCurrentScope(kCloseToTray, m_CloseToTray).toBool();
-  m_TlsEnabled = getFromCurrentScope(kTlsEnabled, m_TlsEnabled).toBool();
-  m_TlsCertPath = getFromCurrentScope(kTlsCertPath, m_TlsCertPath).toString();
-  m_TlsKeyLength = getFromCurrentScope(kTlsKeyLength, m_TlsKeyLength).toInt();
-  m_MainWindowPosition =
-      getFromCurrentScope<QPoint>(kMainWindowPosition, [](const QVariant &v) { return v.toPoint(); });
-  m_MainWindowSize = getFromCurrentScope<QSize>(kMainWindowSize, [](const QVariant &v) { return v.toSize(); });
-  m_ShowDevThanks = getFromCurrentScope(kShowDevThanks, m_ShowDevThanks).toBool();
-  m_ShowCloseReminder = getFromCurrentScope(kShowCloseReminder, m_ShowCloseReminder).toBool();
-  m_EnableUpdateCheck = getFromCurrentScope<bool>(kEnableUpdateCheck, [](const QVariant &v) { return v.toBool(); });
-  m_EnableDragAndDrop = getFromCurrentScope(kEnableDragAndDrop, m_EnableDragAndDrop).toBool();
-  m_EnableLibei = getFromCurrentScope(kEnableLibei, m_EnableLibei).toBool();
+  m_WizardLastRun = get(kWizardLastRun, m_WizardLastRun).toInt();
+  m_Port = get(kPort, m_Port).toInt();
+  m_Interface = get(kInterface, m_Interface).toString();
+  m_LogLevel = get(kLogLevel, m_LogLevel).toInt();
+  m_LogToFile = get(kLogToFile, m_LogToFile).toBool();
+  m_LogFilename = get(kLogFilename, m_LogFilename).toString();
+  m_StartedBefore = get(kStartedBefore, m_StartedBefore).toBool();
+  m_AutoHide = get(kAutoHide, m_AutoHide).toBool();
+  m_LastVersion = get(kLastVersion, m_LastVersion).toString();
+  m_ServerGroupChecked = get(kServerGroupChecked, m_ServerGroupChecked).toBool();
+  m_UseExternalConfig = get(kUseExternalConfig, m_UseExternalConfig).toBool();
+  m_ConfigFile = get(kConfigFile, m_ConfigFile).toString();
+  m_UseInternalConfig = get(kUseInternalConfig, m_UseInternalConfig).toBool();
+  m_ClientGroupChecked = get(kClientGroupChecked, m_ClientGroupChecked).toBool();
+  m_ServerHostname = get(kServerHostname, m_ServerHostname).toString();
+  m_PreventSleep = get(kPreventSleep, m_PreventSleep).toBool();
+  m_LanguageSync = get(kLanguageSync, m_LanguageSync).toBool();
+  m_InvertScrollDirection = get(kInvertScrollDirection, m_InvertScrollDirection).toBool();
+  m_InvertConnection = get(kInvertConnection, m_InvertConnection).toBool();
+  m_EnableService = get(kEnableService, m_EnableService).toBool();
+  m_CloseToTray = get(kCloseToTray, m_CloseToTray).toBool();
+  m_TlsEnabled = get(kTlsEnabled, m_TlsEnabled).toBool();
+  m_TlsCertPath = get(kTlsCertPath, m_TlsCertPath).toString();
+  m_TlsKeyLength = get(kTlsKeyLength, m_TlsKeyLength).toInt();
+  m_MainWindowPosition = get<QPoint>(kMainWindowPosition, [](const QVariant &v) { return v.toPoint(); });
+  m_MainWindowSize = get<QSize>(kMainWindowSize, [](const QVariant &v) { return v.toSize(); });
+  m_ShowDevThanks = get(kShowDevThanks, m_ShowDevThanks).toBool();
+  m_ShowCloseReminder = get(kShowCloseReminder, m_ShowCloseReminder).toBool();
+  m_EnableUpdateCheck = get<bool>(kEnableUpdateCheck, [](const QVariant &v) { return v.toBool(); });
+  m_EnableDragAndDrop = get(kEnableDragAndDrop, m_EnableDragAndDrop).toBool();
+  m_EnableLibei = get(kEnableLibei, m_EnableLibei).toBool();
 }
 
 void AppConfig::recallScreenName()
 {
   using enum Setting;
 
-  const auto &screenName = getFromCurrentScope(kScreenName, m_ScreenName).toString().trimmed();
+  const auto &screenName = get(kScreenName, m_ScreenName).toString().trimmed();
 
   // for some reason, the screen name can be saved as an empty string
   // in the config file. this is probably a bug. if this happens, then default
@@ -186,46 +170,58 @@ void AppConfig::recallScreenName()
 void AppConfig::commit()
 {
   using enum Setting;
+  using enum deskflow::gui::ISettings::Scope;
 
   qDebug("committing app config");
 
-  setInAllScopes(kWizardLastRun, m_WizardLastRun);
-  setInAllScopes(kLoadSystemSettings, m_LoadFromSystemScope);
-  setInAllScopes(kClientGroupChecked, m_ClientGroupChecked);
-  setInAllScopes(kServerGroupChecked, m_ServerGroupChecked);
-  setInAllScopes(kEnableUpdateCheck, m_EnableUpdateCheck);
+  // Only write the system scope setting to system config; if the user config is loaded it's either
+  // because the system config doesn't exist or because the system config specifies to use the user config.
+  if ((m_Settings.scope() == System) && isWritable()) {
+    set(kLoadSystemSettings, m_LoadFromSystemScope);
+  } else if (m_Settings.scope() == User) {
+    qDebug("writing scope setting to to system config");
+    auto &systemProxy = m_Settings.getSystemSettings();
+    if (systemProxy.fileExists() && systemProxy.isWritable()) {
+      systemProxy.setValue(settingName(kLoadSystemSettings), m_LoadFromSystemScope);
+      systemProxy.sync();
+    }
+  }
 
-  if (isActiveScopeWritable()) {
-    setInCurrentScope(kScreenName, m_ScreenName);
-    setInCurrentScope(kPort, m_Port);
-    setInCurrentScope(kInterface, m_Interface);
-    setInCurrentScope(kLogLevel, m_LogLevel);
-    setInCurrentScope(kLogToFile, m_LogToFile);
-    setInCurrentScope(kLogFilename, m_LogFilename);
-    setInCurrentScope(kStartedBefore, m_StartedBefore);
-    setInCurrentScope(kElevateMode, static_cast<int>(m_ElevateMode));
-    setInCurrentScope(kElevateModeLegacy, m_ElevateMode == ElevateMode::kAlways);
-    setInCurrentScope(kTlsEnabled, m_TlsEnabled);
-    setInCurrentScope(kTlsCertPath, m_TlsCertPath);
-    setInCurrentScope(kTlsKeyLength, m_TlsKeyLength);
-    setInCurrentScope(kAutoHide, m_AutoHide);
-    setInCurrentScope(kLastVersion, m_LastVersion);
-    setInCurrentScope(kUseExternalConfig, m_UseExternalConfig);
-    setInCurrentScope(kConfigFile, m_ConfigFile);
-    setInCurrentScope(kUseInternalConfig, m_UseInternalConfig);
-    setInCurrentScope(kServerHostname, m_ServerHostname);
-    setInCurrentScope(kPreventSleep, m_PreventSleep);
-    setInCurrentScope(kLanguageSync, m_LanguageSync);
-    setInCurrentScope(kInvertScrollDirection, m_InvertScrollDirection);
-    setInCurrentScope(kInvertConnection, m_InvertConnection);
-    setInCurrentScope(kEnableService, m_EnableService);
-    setInCurrentScope(kCloseToTray, m_CloseToTray);
-    setInCurrentScope(kMainWindowSize, m_MainWindowSize);
-    setInCurrentScope(kMainWindowPosition, m_MainWindowPosition);
-    setInCurrentScope(kShowDevThanks, m_ShowDevThanks);
-    setInCurrentScope(kShowCloseReminder, m_ShowCloseReminder);
-    setInCurrentScope(kEnableDragAndDrop, m_EnableDragAndDrop);
-    setInCurrentScope(kEnableLibei, m_EnableLibei);
+  if (isWritable()) {
+    set(kWizardLastRun, m_WizardLastRun);
+    set(kClientGroupChecked, m_ClientGroupChecked);
+    set(kServerGroupChecked, m_ServerGroupChecked);
+    set(kEnableUpdateCheck, m_EnableUpdateCheck);
+    set(kScreenName, m_ScreenName);
+    set(kPort, m_Port);
+    set(kInterface, m_Interface);
+    set(kLogLevel, m_LogLevel);
+    set(kLogToFile, m_LogToFile);
+    set(kLogFilename, m_LogFilename);
+    set(kStartedBefore, m_StartedBefore);
+    set(kElevateMode, static_cast<int>(m_ElevateMode));
+    set(kElevateModeLegacy, m_ElevateMode == ElevateMode::kAlways);
+    set(kTlsEnabled, m_TlsEnabled);
+    set(kTlsCertPath, m_TlsCertPath);
+    set(kTlsKeyLength, m_TlsKeyLength);
+    set(kAutoHide, m_AutoHide);
+    set(kLastVersion, m_LastVersion);
+    set(kUseExternalConfig, m_UseExternalConfig);
+    set(kConfigFile, m_ConfigFile);
+    set(kUseInternalConfig, m_UseInternalConfig);
+    set(kServerHostname, m_ServerHostname);
+    set(kPreventSleep, m_PreventSleep);
+    set(kLanguageSync, m_LanguageSync);
+    set(kInvertScrollDirection, m_InvertScrollDirection);
+    set(kInvertConnection, m_InvertConnection);
+    set(kEnableService, m_EnableService);
+    set(kCloseToTray, m_CloseToTray);
+    set(kMainWindowSize, m_MainWindowSize);
+    set(kMainWindowPosition, m_MainWindowPosition);
+    set(kShowDevThanks, m_ShowDevThanks);
+    set(kShowCloseReminder, m_ShowCloseReminder);
+    set(kEnableDragAndDrop, m_EnableDragAndDrop);
+    set(kEnableLibei, m_EnableLibei);
   }
 
   if (m_TlsChanged) {
@@ -234,48 +230,19 @@ void AppConfig::commit()
   }
 }
 
-void AppConfig::determineScope()
-{
-
-  qDebug("determining config scope");
-
-  // first, try to determine if the system scope should be used according to the
-  // user scope...
-  if (m_Scopes.scopeContains(settingName(Setting::kLoadSystemSettings), ConfigScopes::Scope::User)) {
-    auto loadFromSystemScope =
-        m_Scopes
-            .getFromScope(settingName(Setting::kLoadSystemSettings), m_LoadFromSystemScope, ConfigScopes::Scope::User)
-            .toBool();
-    if (loadFromSystemScope) {
-      qDebug("user settings indicates system scope should be used");
-    } else {
-      qDebug("user settings indicates user scope should be used");
-    }
-    setLoadFromSystemScope(loadFromSystemScope);
-  }
-
-  // ...failing that, check the system scope instead to see if an arbitrary
-  // required setting is present. if it is, then we can assume that the system
-  // scope should be used.
-  else if (m_Scopes.scopeContains(settingName(Setting::kScreenName), ConfigScopes::Scope::System)) {
-    qDebug("system settings scope contains screen name, using system scope");
-    setLoadFromSystemScope(true);
-  }
-}
-
 void AppConfig::recallElevateMode()
 {
   using enum Setting;
 
-  if (!m_Scopes.scopeContains(settingName(kElevateMode))) {
+  if (!m_Settings.contains(settingName(kElevateMode))) {
     qDebug("elevate mode not set yet, skipping");
     return;
   }
 
-  QVariant elevateMode = getFromCurrentScope(kElevateMode);
+  QVariant elevateMode = get(kElevateMode);
   if (!elevateMode.isValid()) {
     qDebug("elevate mode not valid, loading legacy setting");
-    elevateMode = getFromCurrentScope(kElevateModeLegacy, QVariant(static_cast<int>(kDefaultElevateMode)));
+    elevateMode = get(kElevateModeLegacy, QVariant(static_cast<int>(kDefaultElevateMode)));
   }
 
   m_ElevateMode = static_cast<ElevateMode>(elevateMode.toInt());
@@ -287,70 +254,35 @@ QString AppConfig::settingName(Setting name)
   return m_SettingsName[index];
 }
 
-template <typename T> void AppConfig::setInCurrentScope(Setting name, const std::optional<T> &value)
+template <typename T> void AppConfig::set(Setting name, const std::optional<T> &value)
 {
   if (value.has_value()) {
-    m_Scopes.setInScope(settingName(name), value.value());
+    m_Settings.set(settingName(name), value.value());
   }
 }
 
-template <typename T> void AppConfig::setInCurrentScope(Setting name, T value)
+template <typename T> void AppConfig::set(Setting name, T value)
 {
-  m_Scopes.setInScope(settingName(name), value);
+  m_Settings.set(settingName(name), value);
 }
 
-template <typename T> void AppConfig::setInAllScopes(Setting name, const std::optional<T> &value)
+QVariant AppConfig::get(Setting name, const QVariant &defaultValue) const
 {
-  if (value.has_value()) {
-    m_Scopes.setInScope(settingName(name), value.value(), ConfigScopes::Scope::User);
-    m_Scopes.setInScope(settingName(name), value.value(), ConfigScopes::Scope::System);
-  }
+  return m_Settings.get(settingName(name), defaultValue);
 }
 
-template <typename T> void AppConfig::setInAllScopes(Setting name, T value)
+template <typename T> std::optional<T> AppConfig::get(Setting name, std::function<T(const QVariant &)> toType) const
 {
-  m_Scopes.setInScope(settingName(name), value, ConfigScopes::Scope::User);
-  m_Scopes.setInScope(settingName(name), value, ConfigScopes::Scope::System);
-}
-
-QVariant AppConfig::getFromCurrentScope(Setting name, const QVariant &defaultValue) const
-{
-  return m_Scopes.getFromScope(settingName(name), defaultValue);
-}
-
-template <typename T>
-std::optional<T> AppConfig::getFromCurrentScope(Setting name, std::function<T(const QVariant &)> toType) const
-{
-  if (m_Scopes.scopeContains(settingName(name))) {
-    return toType(m_Scopes.getFromScope(settingName(name)));
+  if (m_Settings.contains(settingName(name))) {
+    return toType(m_Settings.get(settingName(name)));
   } else {
     return std::nullopt;
   }
 }
 
-QVariant AppConfig::findInAllScopes(Setting name, const QVariant &defaultValue) const
+void AppConfig::setScope(Settings::Scope scope)
 {
-  using enum ConfigScopes::Scope;
-
-  QVariant result(defaultValue);
-  QString setting(settingName(name));
-
-  if (m_Scopes.scopeContains(setting)) {
-    result = m_Scopes.getFromScope(setting, defaultValue);
-  } else if (m_Scopes.activeScope() == System) {
-    if (m_Scopes.scopeContains(setting, User)) {
-      result = m_Scopes.getFromScope(setting, defaultValue, User);
-    }
-  } else if (m_Scopes.scopeContains(setting, System)) {
-    result = m_Scopes.getFromScope(setting, defaultValue, System);
-  }
-
-  return result;
-}
-
-void AppConfig::loadScope(ConfigScopes::Scope scope)
-{
-  using enum ConfigScopes::Scope;
+  using enum Settings::Scope;
 
   switch (scope) {
   case User:
@@ -365,19 +297,17 @@ void AppConfig::loadScope(ConfigScopes::Scope scope)
     qFatal("invalid scope");
   }
 
-  if (m_Scopes.activeScope() == scope) {
+  if (m_Settings.scope() == scope) {
     qDebug("already in required scope, skipping");
     return;
   }
 
-  m_Scopes.setActiveScope(scope);
+  m_Settings.setScope(scope);
 
-  qDebug("active scope file path: %s", qPrintable(m_Scopes.activeFilePath()));
-
-  // only signal ready if there is at least one setting in the required scope.
+  // HACK: only signal ready if there is at least one setting in the required scope.
   // this prevents the current settings from being set back to default.
-  if (m_Scopes.scopeContains(settingName(Setting::kScreenName), m_Scopes.activeScope())) {
-    m_Scopes.signalReady();
+  if (m_Settings.contains(settingName(Setting::kScreenName))) {
+    m_Settings.signalReady();
   } else {
     qDebug("no screen name in scope, skipping");
   }
@@ -385,26 +315,26 @@ void AppConfig::loadScope(ConfigScopes::Scope scope)
 
 void AppConfig::setLoadFromSystemScope(bool value)
 {
-  using enum ConfigScopes::Scope;
+  using enum Settings::Scope;
 
   if (value) {
-    loadScope(System);
+    setScope(System);
   } else {
-    loadScope(User);
+    setScope(User);
   }
 
   // set after loading scope since it may have been overridden.
   m_LoadFromSystemScope = value;
 }
 
-bool AppConfig::isActiveScopeWritable() const
+bool AppConfig::isWritable() const
 {
-  return m_Scopes.isActiveScopeWritable();
+  return m_Settings.isWritable();
 }
 
 bool AppConfig::isActiveScopeSystem() const
 {
-  return m_Scopes.activeScope() == ConfigScopes::Scope::System;
+  return m_Settings.scope() == Settings::Scope::System;
 }
 
 QString AppConfig::logDir() const
@@ -427,9 +357,9 @@ void AppConfig::persistLogDir() const
 // Begin getters
 ///////////////////////////////////////////////////////////////////////////////
 
-IConfigScopes &AppConfig::scopes() const
+ISettings &AppConfig::settings() const
 {
-  return m_Scopes;
+  return m_Settings;
 }
 
 const QString &AppConfig::screenName() const

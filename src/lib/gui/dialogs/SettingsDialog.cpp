@@ -47,7 +47,6 @@ SettingsDialog::SettingsDialog(
       m_coreProcess(coreProcess),
       m_tlsUtility(appConfig)
 {
-
   setupUi(this);
 
   // force the first tab, since qt creator sets the active tab as the last one
@@ -108,14 +107,6 @@ void SettingsDialog::on_m_pRadioSystemScope_toggled(bool checked)
 
   loadFromConfig();
   updateControls();
-
-  if (!m_appConfig.isActiveScopeWritable()) {
-    if (m_appConfig.isActiveScopeSystem()) {
-      m_pRadioSystemScope->setText("All users (read-only)");
-    } else {
-      m_pRadioUserScope->setText("Current user (read-only)");
-    }
-  }
 }
 
 void SettingsDialog::on_m_pPushButtonTlsCertPath_clicked()
@@ -165,7 +156,6 @@ void SettingsDialog::accept()
     return;
   }
 
-  m_appConfig.setLoadFromSystemScope(m_pRadioSystemScope->isChecked());
   m_appConfig.setScreenName(m_pLineEditScreenName->text());
   m_appConfig.setPort(m_pSpinBoxPort->value());
   m_appConfig.setNetworkInterface(m_pLineEditInterface->text());
@@ -201,7 +191,6 @@ void SettingsDialog::reject()
 
 void SettingsDialog::loadFromConfig()
 {
-
   m_pLineEditScreenName->setText(m_appConfig.screenName());
   m_pSpinBoxPort->setValue(m_appConfig.port());
   m_pLineEditInterface->setText(m_appConfig.networkInterface());
@@ -231,7 +220,6 @@ void SettingsDialog::loadFromConfig()
 
 void SettingsDialog::updateTlsControls()
 {
-
   if (QFile(m_appConfig.tlsCertPath()).exists()) {
     updateKeyLengthOnFile(m_appConfig.tlsCertPath());
   } else {
@@ -239,14 +227,14 @@ void SettingsDialog::updateTlsControls()
     m_pComboBoxTlsKeyLength->setCurrentIndex(m_pComboBoxTlsKeyLength->findText(keyLengthText));
   }
 
-  m_pCheckBoxEnableTls->setEnabled(m_appConfig.isActiveScopeWritable());
+  m_pCheckBoxEnableTls->setEnabled(m_appConfig.isWritable());
   m_pCheckBoxEnableTls->setChecked(m_tlsUtility.isEnabled());
   m_pLineEditTlsCertPath->setText(m_appConfig.tlsCertPath());
 }
 
 void SettingsDialog::updateTlsControlsEnabled()
 {
-  const auto writable = m_appConfig.isActiveScopeWritable();
+  const auto writable = m_appConfig.isWritable();
   const auto clientMode = m_appConfig.clientGroupChecked();
   const auto tlsChecked = m_pCheckBoxEnableTls->isChecked();
 
@@ -279,6 +267,7 @@ void SettingsDialog::updateKeyLengthOnFile(const QString &path)
 
 void SettingsDialog::updateControls()
 {
+  using enum deskflow::gui::ISettings::Scope;
 
 #if defined(Q_OS_WIN)
   const auto serviceAvailable = true;
@@ -288,9 +277,36 @@ void SettingsDialog::updateControls()
   m_pGroupService->setTitle("Service (Windows only)");
 #endif
 
-  const bool writable = m_appConfig.isActiveScopeWritable();
-  const bool serviceChecked = m_pCheckBoxServiceEnabled->isChecked();
-  const bool logToFile = m_pCheckBoxLogToFile->isChecked();
+  const auto writable = m_appConfig.isWritable();
+  const auto serviceChecked = m_pCheckBoxServiceEnabled->isChecked();
+  const auto logToFile = m_pCheckBoxLogToFile->isChecked();
+
+  const auto allUsersReadOnly = QStringLiteral("All users (read-only)");
+  const auto currentUserReadOnly = QStringLiteral("Current user (read-only)");
+
+  // When the current scope is not writable, it shouldn't be possible change scope.
+  // Otherwise, where either other scope is not writable, disable that scope's radio button.
+  if (!writable) {
+    m_pRadioSystemScope->setEnabled(false);
+    m_pRadioUserScope->setEnabled(false);
+    if (m_appConfig.isActiveScopeSystem()) {
+      m_pRadioSystemScope->setText(allUsersReadOnly);
+    } else {
+      m_pRadioUserScope->setText(currentUserReadOnly);
+    }
+  } else if (m_appConfig.settings().scope() == User) {
+    auto &systemSettings = m_appConfig.settings().getSystemSettings();
+    if (!systemSettings.isWritable()) {
+      m_pRadioSystemScope->setEnabled(false);
+      m_pRadioSystemScope->setText(allUsersReadOnly);
+    }
+  } else {
+    auto &userSettings = m_appConfig.settings().getUserSettings();
+    if (!userSettings.isWritable()) {
+      m_pRadioUserScope->setEnabled(false);
+      m_pRadioUserScope->setText(currentUserReadOnly);
+    }
+  }
 
   m_pLineEditScreenName->setEnabled(writable);
   m_pSpinBoxPort->setEnabled(writable);

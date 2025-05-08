@@ -20,7 +20,7 @@
 
 #include "ElevateMode.h"
 #include "IAppConfig.h"
-#include "IConfigScopes.h"
+#include "ISettings.h"
 #include "gui/paths.h"
 
 #include <QDir>
@@ -69,7 +69,7 @@ const bool kDefaultEnableLibei = false;
 class AppConfig : public QObject, public deskflow::gui::IAppConfig
 {
   using ProcessMode = deskflow::gui::ProcessMode;
-  using IConfigScopes = deskflow::gui::IConfigScopes;
+  using ISettings = deskflow::gui::ISettings;
 
   Q_OBJECT
 
@@ -138,9 +138,7 @@ public:
     }
   };
 
-  explicit AppConfig(IConfigScopes &scopes, std::shared_ptr<Deps> deps = std::make_shared<Deps>());
-
-  void determineScope();
+  explicit AppConfig(ISettings &scopes, std::shared_ptr<Deps> deps = std::make_shared<Deps>());
 
   /**
    * @brief Commits the current settings to the active scope.
@@ -152,7 +150,7 @@ public:
   // Getters (overrides)
   //
 
-  IConfigScopes &scopes() const override;
+  ISettings &settings() const override;
   ProcessMode processMode() const override;
   ElevateMode elevateMode() const override;
   bool tlsEnabled() const override;
@@ -174,7 +172,7 @@ public:
   const QString &configFile() const override;
   const QString &networkInterface() const override;
   const QString &serverHostname() const override;
-  bool isActiveScopeWritable() const override;
+  bool isWritable() const override;
   bool isActiveScopeSystem() const override;
   int logLevel() const override;
   bool autoHide() const override;
@@ -257,48 +255,29 @@ private:
   void recallScreenName();
   void recallElevateMode();
   void recallFromAllScopes();
-  void recallFromCurrentScope();
 
   /**
    * @brief Loads a setting if it exists, otherwise returns `std::nullopt`
    *
    * @param toType A function to convert the QVariant to the desired type.
    */
-  template <typename T>
-  std::optional<T> getFromCurrentScope(Setting name, std::function<T(const QVariant &)> toType) const;
+  template <typename T> std::optional<T> get(Setting name, std::function<T(const QVariant &)> toType) const;
 
   /**
    * @brief Sets a setting if the value is not `std::nullopt`.
    */
-  template <typename T> void setInCurrentScope(Setting name, const std::optional<T> &value);
+  template <typename T> void set(Setting name, const std::optional<T> &value);
 
   /// @brief Sets the value of a setting
   /// @param [in] name The Setting to be saved
   /// @param [in] value The Value to be saved
-  template <typename T> void setInCurrentScope(AppConfig::Setting name, T value);
+  template <typename T> void set(AppConfig::Setting name, T value);
 
-  /**
-   * @brief Sets a setting in all scopes if the value is not `std::nullopt`.
-   */
-  template <typename T> void setInAllScopes(AppConfig::Setting name, const std::optional<T> &value);
-
-  /// @brief Sets the value of a common setting
-  /// which should have the same value for all scopes
-  /// @param [in] name The Setting to be saved
-  /// @param [in] value The Value to be saved
-  template <typename T> void setInAllScopes(AppConfig::Setting name, T value);
-
-  QVariant getFromCurrentScope(AppConfig::Setting name, const QVariant &defaultValue = QVariant()) const;
-
-  /**
-   * @brief Finds a value by searching each scope starting with the current
-   * scope.
-   */
-  QVariant findInAllScopes(AppConfig::Setting name, const QVariant &defaultValue = QVariant()) const;
+  QVariant get(AppConfig::Setting name, const QVariant &defaultValue = QVariant()) const;
 
   /// @brief This method loads config from specified scope
   /// @param [in] scope which should be loaded.
-  void loadScope(IConfigScopes::Scope scope);
+  void setScope(ISettings::Scope scope);
 
   /**
    * @brief Gets a TLS certificate path based on the user's profile dir.
@@ -354,7 +333,7 @@ private:
    */
   bool m_TlsChanged = false;
 
-  deskflow::gui::IConfigScopes &m_Scopes;
+  deskflow::gui::ISettings &m_Settings;
   std::shared_ptr<Deps> m_pDeps;
   QString m_ScreenName;
   QString m_TlsCertPath;
