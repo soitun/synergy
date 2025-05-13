@@ -75,6 +75,29 @@ const auto kLightIconFile = ":/icons/64x64/tray-light.png";
 const auto kDarkIconFile = ":/icons/64x64/tray-dark.png";
 #endif // Q_OS_MAC
 
+//
+// Free functions
+//
+
+QString formatFingerprint(const QString &fingerprint)
+{
+  const auto parts = fingerprint.split(':');
+
+  const auto partsPerLine = 8;
+  QStringList lines;
+  for (int i = 0; i < parts.size(); i += partsPerLine) {
+    QStringList lineParts = parts.mid(i, partsPerLine);
+    QString line = lineParts.join(' ');
+    lines.append(line);
+  }
+
+  return lines.join('\n');
+}
+
+//
+// MainWindow
+//
+
 MainWindow::MainWindow(Settings &configScopes, AppConfig &appConfig)
     : m_Settings(configScopes),
       m_AppConfig(appConfig),
@@ -149,7 +172,6 @@ void MainWindow::setupControls()
   m_pActionHelp->setText(DESKFLOW_HELP_TEXT);
 
   secureSocket(false);
-  updateLocalFingerprint();
 
   m_pLabelUpdate->setStyleSheet(kStyleNoticeLabel);
   m_pLabelUpdate->hide();
@@ -351,6 +373,7 @@ void MainWindow::on_m_pActionStartCore_triggered()
 {
   m_ClientConnection.setShowMessage();
   m_CoreProcess.start();
+  updateLocalFingerprint();
 }
 
 void MainWindow::on_m_pActionStopCore_triggered()
@@ -460,7 +483,18 @@ void MainWindow::on_m_pLabelComputerName_linkActivated(const QString &)
 
 void MainWindow::on_m_pLabelFingerprint_linkActivated(const QString &)
 {
-  QMessageBox::information(this, "SSL/TLS fingerprint", TlsFingerprint::local().readFirst());
+  auto fingerprint = TlsFingerprint::local().readFirst();
+  QMessageBox::information(
+      this, "TLS fingerprint",
+      QString(
+          "<p>This is the TLS fingerprint of this computer:</p>"
+          "<pre>%1</pre>"
+          "<p>Compare this fingerprint to the one on your client's screen. "
+          "If the two don't match exactly, then it's probably not this server "
+          "you're connecting to (it could be a malicious user).</p>"
+      )
+          .arg(formatFingerprint(fingerprint))
+  );
 }
 
 void MainWindow::on_m_pRadioGroupServer_clicked(bool)
@@ -717,14 +751,14 @@ void MainWindow::checkFingerprint(const QString &line)
         QString(
             "<p>You are connecting to a server.</p>"
             "<p>Here is it's TLS fingerprint:</p>"
-            "<p>%1</p>"
+            "<pre>%1</pre>"
             "<p>Compare this fingerprint to the one on your server's screen. "
             "If the two don't match exactly, then it's probably not the server "
             "you're expecting (it could be a malicious user).</p>"
             "<p>Do you want to trust this fingerprint for future "
             "connections? If you don't, a connection cannot be made.</p>"
         )
-            .arg(fingerprint),
+            .arg(formatFingerprint(fingerprint)),
         QMessageBox::Yes | QMessageBox::No
     );
 
@@ -973,11 +1007,7 @@ void MainWindow::updateLocalFingerprint()
     qFatal("failed to check if fingerprint exists");
   }
 
-  if (m_AppConfig.tlsEnabled() && fingerprintExists && m_pRadioGroupServer->isChecked()) {
-    m_pLabelFingerprint->setVisible(true);
-  } else {
-    m_pLabelFingerprint->setVisible(false);
-  }
+  m_pLabelFingerprint->setVisible(m_AppConfig.tlsEnabled() && fingerprintExists && m_pRadioGroupServer->isChecked());
 }
 
 void MainWindow::autoAddScreen(const QString name)
@@ -1039,6 +1069,8 @@ void MainWindow::enableServer(bool enable)
   m_pWidgetServer->setEnabled(enable);
   m_pWidgetServerInput->setVisible(m_AppConfig.invertConnection());
 
+  updateLocalFingerprint();
+
   if (enable) {
     m_pButtonToggleStart->setEnabled(true);
     m_pActionStartCore->setEnabled(true);
@@ -1050,6 +1082,7 @@ void MainWindow::enableServer(bool enable)
     if (!m_AppConfig.startedBefore()) {
       qDebug("auto-starting core server for first time");
       m_CoreProcess.start();
+      updateLocalFingerprint();
     }
   }
 }
@@ -1103,6 +1136,7 @@ void MainWindow::autoStartCore()
 {
   if (m_AppConfig.startedBefore()) {
     m_CoreProcess.start();
+    updateLocalFingerprint();
   }
 }
 
