@@ -86,13 +86,13 @@ jobs:
           fetch-depth: 0
           submodules: true
 
-      - name: Cache vcpkg dir
-        uses: actions/cache@v4
+      - name: Build and cache vcpkg
+        id: vcpkg
+        uses: sithlord48/vcpkg-action@v7
         with:
-          path: |
-            vcpkg
-            vcpkg_installed
-          key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          manifest-dir: ${{ github.workspace }}
+          triplet: x64-windows-release
+          token: ${{ github.token }}
 
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
@@ -103,12 +103,6 @@ jobs:
           version: ${{ env.QT_VERSION }}
           cache: true
           cache-key-prefix: windows-qt-${{ env.QT_VERSION }}
-
-      - name: Cache deps dir
-        uses: actions/cache@v4
-        with:
-          path: deps
-          key: ${{ runner.os }}-deps-${{ hashFiles('config.yaml') }}
 
       # This effectively runs `vcvarsall.bat`, etc. It's not actually installing
       # VC++ as that's already pre-installed on the Windows runner.
@@ -122,8 +116,6 @@ jobs:
         uses: seanmiddleditch/gha-setup-ninja@master
 
       - name: Install dependencies
-        env:
-          VCPKG_ROOT: "" # Unset deliberately to suppress 'already installed' warning.
         run: python ./scripts/install_deps.py
 
       - name: Configure
@@ -132,7 +124,8 @@ jobs:
           --preset=windows-release `
           -DUSE_TOMLPLUSPLUS=OFF `
           -DUSE_CLI11=OFF `
-          -DSYNERGY_VERSION_CHECK=${{ vars.SYNERGY_VERSION_CHECK }}
+          -DSYNERGY_VERSION_CHECK=${{ vars.SYNERGY_VERSION_CHECK }} `
+          ${{ steps.vcpkg.outputs.vcpkg-cmake-config }}
 
       - name: Build
         run: cmake --build build -j8
@@ -284,7 +277,7 @@ jobs:
         shell: bash
         env:
           DEBIAN_FRONTEND: noninteractive
-        run : |
+        run: |
           if [ "${{ matrix.distro.like }}" == "debian" ]; then
             apt update
             apt install -y git python3 python3-venv
