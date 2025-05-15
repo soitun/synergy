@@ -523,13 +523,9 @@ bool CoreProcess::addGenericArgs(QStringList &args, const ProcessMode processMod
   }
 #endif
 
-#if defined(Q_OS_WIN)
-  // on windows, the profile directory changes depending on the user that
-  // launched the process (e.g. when launched with elevation). setting the
-  // profile dir on launch ensures it uses the same profile dir is used
-  // no matter how its relaunched.
-  args << "--profile-dir" << m_pDeps->getProfileRoot();
-#endif
+  // Used to find TLS fingerprint files.
+  QDir dir = m_appConfig.isSystemScope() ? paths::systemConfigDir(true) : paths::userConfigDir(true);
+  args << "--profile-dir" << dir.absolutePath();
 
   if (m_appConfig.preventSleep()) {
     args << "--prevent-sleep";
@@ -586,7 +582,7 @@ bool CoreProcess::addServerArgs(QStringList &args, QString &app)
       qCritical("failed to persist tls certificate");
       return false;
     }
-    args << "--tls-cert" << m_appConfig.tlsCertPath();
+    args << "--tls-cert" << paths::tlsFilePath(m_appConfig.tlsCertPath(), m_appConfig.isSystemScope());
   }
 
   return true;
@@ -632,13 +628,22 @@ bool CoreProcess::addClientArgs(QStringList &args, QString &app)
   return true;
 }
 
+QDir CoreProcess::getConfigDir() const
+{
+  if (m_appConfig.isSystemScope()) {
+    return paths::systemConfigDir(true);
+  } else {
+    return paths::userConfigDir(true);
+  }
+}
+
 QString CoreProcess::persistServerConfig() const
 {
   if (m_appConfig.useExternalConfig()) {
     return m_appConfig.configFile();
   }
 
-  const auto configDir = paths::configDir(true);
+  const auto configDir = getConfigDir();
   const auto configDirPath = configDir.absolutePath();
 
   QFile configFile(configDirPath + "/" + kServerConfigFilename);
