@@ -4,17 +4,10 @@
 name: "Install dependencies"
 
 inputs:
-  os-like:
-    description: "Used only on Linux for distro type"
-
   qt-version:
     description: "The version of Qt to install on mac os"
-
-  legacy-debian:
-    description: "Use legacy debian packages (excludes newer libs)"
-
-  build-libportal:
-    description: "Build libportal from source on Linux"
+    required: false
+    default: ""
 
 outputs:
   vcpkg-cmake-config:
@@ -25,33 +18,13 @@ runs:
   using: "composite"
 
   steps:
+    # On Ubuntu 24.04, libportal is available but does not support the required portals,
+    # so we can build a newer one since the available libei works fine for Wayland support.
+    # On older Ubuntu and Debian versions, there is no libei, so Wayland support is not possible.
     - name: Install dependencies
       if: ${{ runner.os == 'Linux' || runner.os == 'macOS' }}
-      run: |
-        args=""
-
-        if [ "${{ inputs.legacy-debian }}" == "true" ]; then
-          echo "Skipping newer libs for legacy debian compatibility"
-          args="${args} --legacy-debian"
-        fi
-
-        if [ "${{ inputs.build-libportal }}" == "true" ]; then
-          echo "Building libportal from source"
-          args="${args} --libportal-debian"
-        fi
-
-        ./scripts/install_deps.sh ${args}
+      run: ./scripts/install_deps.sh ${args}
       shell: bash
-
-    # HACK: This installs the system deps a 2nd time, but without that the Meson step fails.
-    - name: Build libportal
-      if: ${{ inputs.build-libportal }}
-      run: |
-        ./scripts/install_deps.py \
-          --meson-no-system libportal --meson-static libportal
-      shell: bash
-      env:
-        DEBIAN_FRONTEND: noninteractive
 
     # HACK: Needed for GTest on Windows (installed bia Meson).
     - name: Install Windows deps
@@ -104,12 +77,3 @@ runs:
     - name: Setup VC++ environment
       if: ${{ runner.os == 'Windows' }}
       uses: ilammy/msvc-dev-cmd@v1
-
-    - name: Install Wix
-      if: ${{ runner.os == 'Windows' }}
-      run: |
-        dotnet tool install --global wix --version 5.0.2
-        wix extension add --global WixToolset.UI.wixext/5.0.2
-        wix extension add --global WixToolset.Util.wixext/5.0.2
-        wix extension add --global WixToolset.Firewall.wixext/5.0.2
-      shell: pwsh
