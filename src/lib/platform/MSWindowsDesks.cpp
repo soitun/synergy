@@ -18,7 +18,6 @@
 
 #include "platform/MSWindowsDesks.h"
 
-#include "arch/win32/ArchMiscWindows.h"
 #include "base/IEventQueue.h"
 #include "base/IJob.h"
 #include "base/Log.h"
@@ -480,12 +479,50 @@ void MSWindowsDesks::deskMouseRelativeMove(SInt32 dx, SInt32 dy) const
   }
 }
 
+// the system shows the mouse cursor when an internal display count
+// is >= 0.  this count is maintained per application but there's
+// apparently a system wide count added to the application's count.
+// this system count is 0 if there's a mouse attached to the system
+// and -1 otherwise.  the mouse keys accessibility feature can modify
+// this system count by making the system appear to have a mouse.
+void setCursorVisibility(bool visible)
+{
+  LOG_DEBUG("%s cursor", visible ? "showing" : "hiding");
+
+  const int max = 10;
+  int attempts = 0;
+  while (attempts++ < max) {
+    const auto displayCounter = ShowCursor(visible ? TRUE : FALSE);
+    LOG_DEBUG1("cursor display counter: %d", displayCounter);
+
+    if (visible) {
+      if (displayCounter < 0) {
+        LOG_DEBUG1("cursor still hidden, retrying, attempt: %d", attempts);
+      } else {
+        LOG_DEBUG1("cursor is now visible, attempts: %d", attempts);
+        return;
+      }
+    } else {
+      if (displayCounter >= 0) {
+        LOG_DEBUG1("cursor still visible, retrying, attempt: %d", attempts);
+      } else {
+        LOG_DEBUG1("cursor is now hidden, attempts: %d", attempts);
+        return;
+      }
+    }
+  }
+
+  LOG_ERR("unable to set cursor visibility after %d attempts", attempts);
+}
+
 void MSWindowsDesks::deskEnter(Desk *desk)
 {
   if (!m_isPrimary) {
     ReleaseCapture();
   }
-  ShowCursor(TRUE);
+
+  setCursorVisibility(true);
+
   SetWindowPos(desk->m_window, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_HIDEWINDOW);
 
   // restore the foreground window
@@ -505,7 +542,8 @@ void MSWindowsDesks::deskEnter(Desk *desk)
 
 void MSWindowsDesks::deskLeave(Desk *desk, HKL keyLayout)
 {
-  ShowCursor(FALSE);
+  setCursorVisibility(false);
+
   if (m_isPrimary) {
     // map a window to hide the cursor and to use whatever keyboard
     // layout we choose rather than the keyboard layout of the last
@@ -571,8 +609,16 @@ void MSWindowsDesks::deskLeave(Desk *desk, HKL keyLayout)
     // we aren't notified when the mouse leaves our window.
     SetCapture(desk->m_window);
 
-    // warp the mouse to the cursor center
-    LOG((CLOG_DEBUG2 "warping cursor to center: %+d,%+d", m_xCenter, m_yCenter));
+    // windows can take a while to hide the cursor, so wait a few milliseconds to ensure the cursor
+    // is hidden before centering. this doesn't seem to affect the fluidity of the transition.
+    // without this, the cursor appears to flicker in the center of the screen which is annoying.
+    // a slightly more elegant but complex solution could be to use a timed event.
+    // 30 ms seems to work well enough without making the transition feel janky; a lower number
+    // would be better but 10 ms doesn't seem to be quite long enough, as we get noticeable flicker.
+    // this is largely a balance and out of our control, since windows can be unpredictable...
+    // maybe another approach would be to repeatedly check the cursor visibility until it is hidden.
+    LOG_DEBUG1("centering cursor on leave: %+d,%+d", m_xCenter, m_yCenter);
+    ARCH->sleep(0.03);
     deskMouseMove(m_xCenter, m_yCenter);
   }
 }
