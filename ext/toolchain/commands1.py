@@ -1086,7 +1086,8 @@ class InternalCommands:
 				% (type, sys.platform))
 		
 	def distRpm(self):
-		rpmDir = self.getGenerator().buildDir + '/rpm'
+		BUILD_DIR = 'build'
+		rpmDir = BUILD_DIR + '/rpm'
 		if os.path.exists(rpmDir):
 			shutil.rmtree(rpmDir)
 		

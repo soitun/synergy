@@ -135,6 +135,7 @@ void LicenseManager::skipActivation()
 QString
 LicenseManager::getEditionName(Edition const edition, bool trial)
 {
+#ifdef ENABLE_ACTIVATION
 	std::string name ("Synergy");
 	switch (edition) {
 		case kUnregistered:
@@ -150,6 +151,13 @@ LicenseManager::getEditionName(Edition const edition, bool trial)
 		name += " (Trial)";
 	}
 	return QString::fromUtf8 (name.c_str(), name.size());
+#else
+	const QString name(PRODUCT_NAME);
+	if (name.isEmpty()) {
+		qFatal("App name not specified");
+	}
+	return name;
+#endif
 }
 
 void LicenseManager::notifyActivation(QString identity)

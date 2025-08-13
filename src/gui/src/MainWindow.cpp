@@ -197,7 +197,9 @@ void MainWindow::open()
 		showNormal();
 	}
 
+#ifdef ENABLE_UPDATE_CHECK
 	m_VersionChecker.checkLatest();
+#endif
 
 	if (!appConfig().autoConfigPrompted()) {
 		promptAutoConfig();
@@ -290,8 +292,12 @@ void MainWindow::createMenuBar()
 
 	m_pMenuFile->addAction(m_pActionStartSynergy);
 	m_pMenuFile->addAction(m_pActionStopSynergy);
+
+#ifdef ENABLE_ACTIVATION
 	m_pMenuFile->addSeparator();
 	m_pMenuFile->addAction(m_pActivate);
+#endif
+
 	m_pMenuFile->addSeparator();
 	m_pMenuFile->addAction(m_pActionSave);
 	m_pMenuFile->addSeparator();
@@ -1480,12 +1486,14 @@ int MainWindow::raiseActivationDialog()
 
 void MainWindow::on_windowShown()
 {
+#ifdef ENABLE_ACTIVATION
 	time_t currentTime = ::time(0);
 	if (!m_AppConfig->activationHasRun()
 			&& ((m_AppConfig->edition() == kUnregistered) ||
 				(m_LicenseManager->serialKey().isExpired(currentTime)))) {
 		raiseActivationDialog();
 	}
+#endif
 }
 
 QString MainWindow::getProfileRootForArg()

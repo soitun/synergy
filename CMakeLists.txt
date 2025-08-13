@@ -57,6 +57,17 @@ if (ENABLE_TESTS)
 	add_definitions(-DENABLE_TESTS)
 endif()
 
+# May be overridden when activation enabled.
+option(PRODUCT_NAME "Used in window title")
+if (PRODUCT_NAME)
+	add_definitions(-DPRODUCT_NAME=\"${PRODUCT_NAME}\")
+endif()
+
+option(ENABLE_UPDATE_CHECK "Whether to check for updates")
+if (ENABLE_UPDATE_CHECK)
+	add_definitions(-DENABLE_UPDATE_CHECK)
+endif()
+
 # Set some easy to type variables.
 set(root_dir ${CMAKE_SOURCE_DIR})
 set(cmake_dir ${root_dir}/res)
