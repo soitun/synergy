@@ -21,7 +21,7 @@
 #include <ctime>
 #include "EditionType.h"
 
-#ifdef TEST_ENV
+#if defined(ENABLE_TESTS) && defined(TEST_ENV)
 #include "gtest/gtest_prod.h"
 #endif
 

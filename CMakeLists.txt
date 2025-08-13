@@ -52,6 +52,11 @@ if (CMAKE_GENERATOR STREQUAL "Unix Makefiles")
 	endif()
 endif()
 
+option(ENABLE_TESTS "Build tests (requires gtest)" OFF)
+if (ENABLE_TESTS)
+	add_definitions(-DENABLE_TESTS)
+endif()
+
 # Set some easy to type variables.
 set(root_dir ${CMAKE_SOURCE_DIR})
 set(cmake_dir ${root_dir}/res)
