@@ -136,21 +136,28 @@ QString
 LicenseManager::getEditionName(Edition const edition, bool trial)
 {
 #if defined(ENABLE_ACTIVATION)
-	std::string name ("Synergy 1");
+	QString name("Synergy 1");
 	switch (edition) {
 		case kUnregistered:
 			name += " (UNREGISTERED)";
-			return QString::fromUtf8 (name.c_str(), name.size());
+			break;
+
 		case kBasic:
 			name += " Basic";
 			break;
-		default:
+
+		case kPro:
 			name += " Pro";
+			break;
+
+		case kBusiness:
+			name += " Business";
+			break;
 	}
 	if (trial) {
 		name += " (Trial)";
 	}
-	return QString::fromUtf8 (name.c_str(), name.size());
+	return name;
 #elif defined(PRODUCT_NAME)
 	return PRODUCT_NAME;
 #else

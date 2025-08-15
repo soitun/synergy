@@ -18,12 +18,10 @@
 #ifndef EDITIONTYPE_H
 #define EDITIONTYPE_H
 
-/* Do not reorder these! */
-
 enum Edition {
 	kBasic,
 	kPro,
-	Trial_DO_NOT_USE_OR_THERE_WILL_BE_PAIN,
+	kBusiness,
 	kUnregistered
 };
 

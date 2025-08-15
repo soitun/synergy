@@ -102,6 +102,8 @@ SerialKey::editionString() const
 			return "basic";
 		case kPro:
 			return "pro";
+		case kBusiness:
+			return "business";
 		default: {
 			std::ostringstream oss;
 			oss << static_cast<int>(edition());
@@ -253,12 +255,18 @@ SerialKey::parse(std::string plainSerial)
 }
 
 Edition
-SerialKey::parseEdition(std::string const& editionStr)
+SerialKey::parseEdition(std::string const& text)
 {
-	Edition e = kBasic;
-	if (editionStr == "pro") {
-		e = kPro;
+	if (text == "basic") {
+		return kBasic;
 	}
-
-	return e;
+	else if (text == "pro") {
+		return kPro;
+	}
+	else if (text == "business") {
+		return kBusiness;
+	}
+	else {
+		return kUnregistered;
+	}
 }
