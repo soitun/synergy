@@ -1491,7 +1491,9 @@ void MainWindow::on_windowShown()
 	if (!m_AppConfig->activationHasRun()
 			&& ((m_AppConfig->edition() == kUnregistered) ||
 				(m_LicenseManager->serialKey().isExpired(currentTime)))) {
-		raiseActivationDialog();
+		if (raiseActivationDialog() != QDialog::Accepted) {
+			QApplication::quit();
+		}
 	}
 #endif
 }

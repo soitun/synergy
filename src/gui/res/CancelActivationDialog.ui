@@ -17,9 +17,7 @@
    <item>
     <widget class="QLabel" name="label">
      <property name="text">
-      <string>Are you sure?
-
-If you don't activate Synergy you'll be missing out on some great features.</string>
+      <string>Are you sure you want to cancel? The application will exit.</string>
      </property>
      <property name="wordWrap">
       <bool>true</bool>
