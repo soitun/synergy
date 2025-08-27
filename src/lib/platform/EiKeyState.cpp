@@ -23,11 +23,9 @@
 #include "deskflow/ClientApp.h"
 #include "platform/XWindowsUtil.h"
 
-#include <algorithm>
 #include <cstddef>
 #include <memory>
 #include <unistd.h>
-#include <xkbcommon/xkbcommon.h>
 
 namespace deskflow {
 
@@ -123,28 +121,75 @@ void EiKeyState::pollPressedKeys(KeyButtonSet &pressedKeys) const
   return;
 }
 
-std::uint32_t EiKeyState::convert_mod_mask(std::uint32_t xkb_mask) const
+std::uint32_t EiKeyState::convert_mod_mask(std::uint32_t xkbModMaskIn) const
 {
-  std::uint32_t barrier_mask = 0;
+  std::uint32_t modMaskOut = 0;
 
-  for (xkb_mod_index_t xkbmod = 0; xkbmod < xkb_keymap_num_mods(xkb_keymap_); xkbmod++) {
-    if ((xkb_mask & (1 << xkbmod)) == 0)
+  for (xkb_mod_index_t xkbModIdx = 0; xkbModIdx < xkb_keymap_num_mods(xkb_keymap_); xkbModIdx++) {
+    const char *name = xkb_keymap_mod_get_name(xkb_keymap_, xkbModIdx);
+
+#ifdef HAVE_XKB_KEYMAP_MOD_GET_MASK
+    // Available since xkbcommon v1.10
+    // Note: xkb_keymap_mod_get_mask2 was added in v1.11 which accepts xkb_mod_index_t.
+    const auto xkbModMask = xkb_keymap_mod_get_mask(xkb_keymap_, name);
+#else
+    // HACK: in older xkbcommon we need to create the mask manually from the index.
+    const xkb_mod_mask_t xkbModMask = (1 << xkbModIdx);
+#endif
+
+    // Skip inactive modifiers.
+    if ((xkbModMaskIn & xkbModMask) != xkbModMask)
       continue;
 
-    const char *name = xkb_keymap_mod_get_name(xkb_keymap_, xkbmod);
+    /* added in libxkbcommon 1.8.0 in the same commit so we have all or none */
+#ifndef XKB_VMOD_NAME_ALT
+    static const auto XKB_VMOD_NAME_ALT = "Alt";
+    static const auto XKB_VMOD_NAME_LEVEL3 = "LevelThree";
+    static const auto XKB_VMOD_NAME_LEVEL5 = "LevelFive";
+    static const auto XKB_VMOD_NAME_META = "Meta";
+    static const auto XKB_VMOD_NAME_NUM = "NumLock";
+    static const auto XKB_VMOD_NAME_SCROLL = "ScrollLock";
+    static const auto XKB_VMOD_NAME_SUPER = "Super";
+    static const auto XKB_VMOD_NAME_HYPER = "Hyper";
+    static const auto XKB_MOD_NAME_MOD2 = "Mod2";
+    static const auto XKB_MOD_NAME_MOD3 = "Mod3";
+    static const auto XKB_MOD_NAME_MOD5 = "Mod5";
+#endif
+
+    // From wismill (xkbcommon maintainer):
+    // Meta is usually encoded like Alt, i.e. to Mod1. In that case, both share the same state.
+    // Added to that, if KDE interprets Meta as Super (the logo key), then it might explain the mess.
+
     if (strcmp(XKB_MOD_NAME_SHIFT, name) == 0)
-      barrier_mask |= (1 << kKeyModifierBitShift);
+      modMaskOut |= (1 << kKeyModifierBitShift);
     else if (strcmp(XKB_MOD_NAME_CAPS, name) == 0)
-      barrier_mask |= (1 << kKeyModifierBitCapsLock);
+      modMaskOut |= (1 << kKeyModifierBitCapsLock);
     else if (strcmp(XKB_MOD_NAME_CTRL, name) == 0)
-      barrier_mask |= (1 << kKeyModifierBitControl);
-    else if (strcmp(XKB_MOD_NAME_ALT, name) == 0)
-      barrier_mask |= (1 << kKeyModifierBitAlt);
-    else if (strcmp(XKB_MOD_NAME_LOGO, name) == 0)
-      barrier_mask |= (1 << kKeyModifierBitSuper);
+      modMaskOut |= (1 << kKeyModifierBitControl);
+    else if (strcmp(XKB_MOD_NAME_ALT, name) == 0 || strcmp(XKB_VMOD_NAME_ALT, name) == 0)
+      modMaskOut |= (1 << kKeyModifierBitAlt);
+    else if (strcmp(XKB_MOD_NAME_LOGO, name) == 0 ||   // aka windows/command key
+             strcmp(XKB_VMOD_NAME_SUPER, name) == 0 || // virtual; usually mapped to logo key
+             strcmp(XKB_VMOD_NAME_HYPER, name) == 0)   // virtual; often mapped to caps lock key
+      modMaskOut |= (1 << kKeyModifierBitSuper);
+    else if (strcmp(XKB_MOD_NAME_MOD5, name) == 0 || strcmp(XKB_VMOD_NAME_LEVEL3, name) == 0)
+      modMaskOut |= (1 << kKeyModifierBitAltGr);
+    else if (strcmp(XKB_VMOD_NAME_LEVEL5, name) == 0)
+      modMaskOut |= (1 << kKeyModifierBitLevel5Lock);
+    else if (strcmp(XKB_VMOD_NAME_NUM, name) == 0)
+      modMaskOut |= (1 << kKeyModifierBitNumLock);
+    else if (strcmp(XKB_VMOD_NAME_SCROLL, name) == 0)
+      modMaskOut |= (1 << kKeyModifierBitScrollLock);
+    else if ((strcmp(XKB_VMOD_NAME_META, name) == 0) || // virtual; the old meta (not the new meta/super/logo key)
+             (strcmp(XKB_MOD_NAME_MOD2, name) == 0) ||  // spare, sometimes mapped to num lock.
+             (strcmp(XKB_MOD_NAME_MOD3, name) == 0)     // spare, could be mapped to alt_r, caps lock, scroll lock, etc.
+    )
+      LOG_DEBUG2("modifier mask %s ignored", name);
+    else
+      LOG_WARN("modifier mask %s not accounted for, this is a bug", name);
   }
 
-  return barrier_mask;
+  return modMaskOut;
 }
 
 // Only way to figure out whether a key is a modifier key is to press it,
