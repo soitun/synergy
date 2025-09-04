@@ -59,7 +59,7 @@ env:
   SYNERGY_EDITION_TYPE: ${{ vars.SYNERGY_EDITION_TYPE }}
   SYNERGY_PACKAGE_PREFIX: ${{ inputs.package-prefix || vars.SYNERGY_PACKAGE_PREFIX }}
   SYNERGY_ENABLE_ACTIVATION: ${{ vars.SYNERGY_ENABLE_ACTIVATION }}
-  PACKAGE_BUILD: ${{ !github.event.pull_request.draft }}
+  PACKAGE_BUILD: ${{ !github.event.pull_request.draft && !inputs.package-bin-zip }}
   GIT_REPOSITORY: ${{ inputs.repository || github.repository }}
   GIT_REF: ${{ inputs.ref || github.ref }}
 
@@ -165,9 +165,58 @@ jobs:
             runs-on: ubuntu-latest
             container: manjarolinux/base:latest
 
+          - name: flatpak-x86_64
+            runs-on: ubuntu-latest
+            arch: x86_64
+            container:
+              image: ghcr.io/flathub-infra/flatpak-github-actions:kde-6.8
+              options: --privileged
+
+          - name: flatpak-arm64
+            runs-on: ubuntu-24.04-8-core-arm64
+            arch: aarch64
+            container:
+              image: ghcr.io/flathub-infra/flatpak-github-actions:kde-6.8
+              options: --privileged
+
     steps:
+      - name: Setup variables
+        id: vars
+        shell: bash
+        run: |
+          case "${{ runner.os }}" in
+            "Windows")
+              cmake_args="--preset=windows-release"
+              ;;
+
+            "macOS")
+              cmake_args="$cmake_args --preset=macos-release"
+              cmake_args="$cmake_args -DCMAKE_OSX_SYSROOT=/Applications/Xcode_15.0.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk"
+              ;;
+
+            "Linux")
+              cmake_args="$cmake_args --preset=linux-release"
+              
+              if [ "${{ matrix.target.static-libportal }}" == "true" ]; then
+                cmake_args="$cmake_args -DSYSTEM_LIBPORTAL=OFF -DSTATIC_LIBPORTAL=ON"
+              fi
+
+              cmake_args="$cmake_args -DCMAKE_INSTALL_PREFIX=/usr"
+              ;;
+          esac
+
+          cmake_args="$cmake_args -DUSE_TOMLPLUSPLUS=OFF -DUSE_CLI11=OFF"
+          cmake_args="$cmake_args -DSYNERGY_VERSION_CHECK=${{ vars.SYNERGY_VERSION_CHECK }}"
+          cmake_args="$cmake_args ${{ inputs.cmake-args }}"
+
+          echo "cmake-args=$cmake_args" >> $GITHUB_OUTPUT
+
+          if [[ "${{ matrix.target.name }}" == flatpak* ]]; then
+            echo "is-flatpak=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Setup Linux
-        if: ${{ runner.os == 'Linux' }}
+        if: ${{ runner.os == 'Linux' && !steps.vars.outputs.is-flatpak }}
         id: setup-linux
         shell: bash
         env:
@@ -219,34 +268,6 @@ jobs:
               ;;
           esac
 
-      - name: Setup variables
-        id: vars
-        shell: bash
-        run: |
-          case "${{ runner.os }}" in
-            "Windows")
-              cmake_args="--preset=windows-release"
-              ;;
-
-            "macOS")
-              cmake_args="$cmake_args --preset=macos-release"
-              cmake_args="$cmake_args -DCMAKE_OSX_SYSROOT=/Applications/Xcode_15.0.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk"
-              ;;
-
-            "Linux")
-              cmake_args="$cmake_args --preset=linux-release"
-              if [ "${{ matrix.target.static-libportal }}" == "true" ]; then
-                cmake_args="$cmake_args -DSYSTEM_LIBPORTAL=OFF -DSTATIC_LIBPORTAL=ON"
-              fi
-              ;;
-          esac
-
-          cmake_args="$cmake_args -DUSE_TOMLPLUSPLUS=OFF -DUSE_CLI11=OFF"
-          cmake_args="$cmake_args -DSYNERGY_VERSION_CHECK=${{ vars.SYNERGY_VERSION_CHECK }}"
-          cmake_args="$cmake_args ${{ inputs.cmake-args }}"
-
-          echo "cmake-args=$cmake_args" >> $GITHUB_OUTPUT
-
       # By default, workspace dir is not trusted by Git on containers.
       - name: Setup Git (Linux)
         if: ${{ runner.os == 'Linux' }}
@@ -271,43 +292,57 @@ jobs:
           key: ${{ matrix.target.name }}-bin-${{ inputs.ref }}
 
       - name: Install dependencies
-        if: ${{ !steps.cache-bin.outputs.cache-hit }}
+        if: ${{ !steps.cache-bin.outputs.cache-hit && !steps.vars.outputs.is-flatpak }}
         id: get-deps
         uses: ./.github/actions/install-deps
         with:
           qt-version: ${{ env.QT_VERSION }}
 
       - name: Configure
-        if: ${{ !steps.cache-bin.outputs.cache-hit }}
+        if: ${{ !steps.cache-bin.outputs.cache-hit && !steps.vars.outputs.is-flatpak }}
         run: cmake -B build ${{ steps.vars.outputs.cmake-args }} ${{ steps.get-deps.outputs.vcpkg-cmake-config }}
 
       - name: Build
-        if: ${{ !steps.cache-bin.outputs.cache-hit }}
+        if: ${{ !steps.cache-bin.outputs.cache-hit && !steps.vars.outputs.is-flatpak }}
         run: cmake --build build -j8
 
       - name: Tests
-        if: ${{ !steps.cache-bin.outputs.cache-hit && !inputs.skip-tests }}
+        if: ${{ !steps.cache-bin.outputs.cache-hit && !inputs.skip-tests && !steps.vars.outputs.is-flatpak }}
         uses: ./.github/actions/run-tests
         timeout-minutes: 2
         with:
           job: ${{ matrix.target.name }}
           bin-dir: build/bin
 
+      - name: Get version
+        id: get-version
+        uses: ./.github/actions/get-version
+
       - name: Package (Linux)
-        if: ${{ !steps.cache-bin.outputs.cache-hit && env.PACKAGE_BUILD && runner.os == 'Linux' && !inputs.package-bin-zip }}
+        if: ${{ !steps.cache-bin.outputs.cache-hit && env.PACKAGE_BUILD && runner.os == 'Linux' && !steps.vars.outputs.is-flatpak }}
         run: ./scripts/package.py
         env:
           LINUX_PACKAGE_USER: ${{ steps.setup-linux.outputs.package-user }}
 
+      - name: Package (Flatpak)
+        if: ${{ !steps.cache-bin.outputs.cache-hit && env.PACKAGE_BUILD && steps.vars.outputs.is-flatpak }}
+        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: ${{ env.SYNERGY_PACKAGE_PREFIX }}-${{ steps.get-version.outputs.version }}-linux-${{matrix.target.arch}}.flatpak
+          manifest-path: res/dist/flatpak/com.symless.synergy.yml
+          cache-key: flatpak-builder-${{matrix.target.arch}}-2.0
+          arch: ${{matrix.target.arch}}
+          upload-artifact: false
+
       - name: Package (Windows)
-        if: ${{ !steps.cache-bin.outputs.cache-hit && env.PACKAGE_BUILD && runner.os == 'Windows' && !inputs.package-bin-zip }}
+        if: ${{ !steps.cache-bin.outputs.cache-hit && env.PACKAGE_BUILD && runner.os == 'Windows' }}
         run: python ./scripts/package.py
         env:
           WINDOWS_PFX_CERTIFICATE: ${{ secrets.WINDOWS_PFX }}
           WINDOWS_PFX_PASSWORD: ${{ secrets.WINDOWS_PFX_PASS }}
 
       - name: Package (macOS)
-        if: ${{ !steps.cache-bin.outputs.cache-hit && env.PACKAGE_BUILD && runner.os == 'macOS' && !inputs.package-bin-zip }}
+        if: ${{ !steps.cache-bin.outputs.cache-hit && env.PACKAGE_BUILD && runner.os == 'macOS' }}
         run: ./scripts/package.py
         env:
           APPLE_CODESIGN_ID: ${{ secrets.APPLE_CODESIGN_ID }}
@@ -323,10 +358,13 @@ jobs:
         with:
           source-dir: build/bin
           target-dir: dist
-
-      - name: Get version
-        id: get-version
-        uses: ./.github/actions/get-version
+      
+      - name: Copy Flatpak bundle to dist
+        if: ${{ !steps.cache-bin.outputs.cache-hit && env.PACKAGE_BUILD && steps.vars.outputs.is-flatpak }}
+        run: |
+          mkdir -p dist
+          cp *.flatpak dist/
+          ls -l dist
 
       - name: Upload to GitHub
         if: ${{ !steps.cache-bin.outputs.cache-hit && env.PACKAGE_BUILD }}

@@ -123,36 +123,23 @@ macro(configure_linux_packaging)
   set(CPACK_RPM_PACKAGE_GROUP "Applications/System")
 
   # Manual deps for when shlibdeps/rpmbuild/rpmdeps doesn't detect them.
-  # Older versions of Debian/Ubuntu don't seem to detect the Qt dependencies or libpugixml.
+  # Older versions of Debian/Ubuntu don't seem to detect the Qt dependencies.
   # OpenSSL isn't detected because it's an executable dependency (not a library).
-  set(CPACK_DEBIAN_PACKAGE_DEPENDS "openssl, qt6-qpa-plugins, libqt6widgets6, libpugixml1v5")
+  set(CPACK_DEBIAN_PACKAGE_DEPENDS "openssl, qt6-qpa-plugins, libqt6widgets6")
   set(CPACK_RPM_PACKAGE_REQUIRES "openssl")
 
-  # The default for CMake seems to be /usr/local, which seems uncommon. While
-  # the default /usr/local prefix causes the app to appear on Debian and Fedora,
-  # it doesn't seem to appear on Arch Linux. Setting the prefix to /usr seems to
-  # work on a wider variety of distros, and that also seems to be where most
-  # apps install to.
-  set(CMAKE_INSTALL_PREFIX /usr)
-
-  set(source_desktop_file ${DESKFLOW_PROJECT_RES_DIR}/dist/linux/app.desktop.in)
-  set(configured_desktop_file ${PROJECT_BINARY_DIR}/app.desktop)
-  set(install_desktop_file ${DESKFLOW_APP_ID}.desktop)
-
-  configure_file(${source_desktop_file} ${configured_desktop_file} @ONLY)
-
   install(
-    FILES ${configured_desktop_file}
+    FILES ${PROJECT_SOURCE_DIR}/res/dist/linux/com.symless.synergy.desktop
     DESTINATION share/applications
-    RENAME ${install_desktop_file})
+    RENAME com.symless.synergy.desktop)
 
   install(
     FILES ${DESKFLOW_RES_DIR}/app.png
-    DESTINATION share/pixmaps
-    RENAME ${DESKFLOW_APP_ID}.png)
+    DESTINATION share/icons/hicolor/512x512/apps/
+    RENAME com.symless.synergy.png)
 
   # Prepare PKGBUILD for Arch Linux
-  configure_file(${DESKFLOW_PROJECT_RES_DIR}/dist/arch/PKGBUILD.in
+  configure_file(${PROJECT_SOURCE_DIR}/res/dist/arch/PKGBUILD.in
                  ${CMAKE_BINARY_DIR}/PKGBUILD @ONLY)
 
 endmacro()
