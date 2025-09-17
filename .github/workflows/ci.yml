@@ -82,6 +82,9 @@ jobs:
     steps:
       - run: echo "✅ CI passed" > $GITHUB_STEP_SUMMARY
 
+  # At first glance, this aggregating cache seems like overkill, but it has one main benefit:
+  # it avoids having to wait for slow runners to spin up to just restore a cache, upload, and end.
+  # Some runners are particularly slow, such as the ARM64 or high-CPU runners.
   main-cache-pre:
     runs-on: ubuntu-latest
 
@@ -426,7 +429,7 @@ jobs:
       - name: Download core binaries
         uses: actions/download-artifact@v4
         with:
-          name: package-synergy-core-*
+          pattern: package-synergy-core-*
           path: cache
 
       - name: Cache core binaries
