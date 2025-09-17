@@ -338,19 +338,19 @@ jobs:
           APPLE_NOTARY_PASSWORD: ${{ secrets.APPLE_NOTARY_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
-      - name: Package (bin zip)
-        if: ${{ !steps.cache-bin.outputs.cache-hit && env.PACKAGE_BUILD && inputs.package-bin-zip }}
-        uses: ./.github/actions/dist-copy-bin
-        with:
-          source-dir: build/bin
-          target-dir: dist
-
       - name: Copy Flatpak bundle to dist
         if: ${{ !steps.cache-bin.outputs.cache-hit && env.PACKAGE_BUILD && steps.vars.outputs.is-flatpak }}
         run: |
           mkdir -p dist
           cp *.flatpak dist/
           ls -l dist
+
+      - name: Package (bin zip)
+        if: ${{ !steps.cache-bin.outputs.cache-hit && inputs.package-bin-zip }}
+        uses: ./.github/actions/dist-copy-bin
+        with:
+          source-dir: build/bin
+          target-dir: dist
 
       - name: Upload to GitHub
         if: ${{ !steps.cache-bin.outputs.cache-hit && env.PACKAGE_BUILD }}
