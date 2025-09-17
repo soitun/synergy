@@ -1,6 +1,7 @@
 #!/usr/bin/env sh
 
 main() {
+  set -x
   uname_out="$(uname -s)"
   case "${uname_out}" in
     Darwin*) install_darwin_deps ;;
@@ -133,7 +134,7 @@ install_fedora_deps() {
 
 install_suse_deps() {
   zypper refresh
-  zypper install -y --force-resolution \
+  zypper --non-interactive --no-gpg-checks install -y --force-resolution \
     cmake \
     make \
     ninja \
