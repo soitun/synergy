@@ -32,7 +32,7 @@ runs:
           cp -v \
             ${source_dir}/synergy-core.exe \
             ${source_dir}/synergy-daemon.exe \
-            ${source_dir}/syntool.exe \
+            ${source_dir}/synergy-legacy.exe \
             ${source_dir}/libcrypto-3-x64.dll \
             ${source_dir}/libssl-3-x64.dll \
             ${target_dir}
@@ -45,7 +45,7 @@ runs:
 
           cp -v \
             ${source_dir}/synergy-core \
-            ${source_dir}/syntool \
+            ${source_dir}/synergy-legacy \
             ${target_dir}
         fi
 
