@@ -356,7 +356,7 @@ jobs:
           target-dir: dist
 
       - name: Upload to GitHub
-        if: ${{ !steps.cache-bin.outputs.cache-hit && steps.vars.outputs.package-build }}
+        if: ${{ !steps.cache-bin.outputs.cache-hit && (steps.vars.outputs.package-build || inputs.package-bin-zip) }}
         uses: actions/upload-artifact@v4
         with:
           name: package-${{ env.SYNERGY_PACKAGE_PREFIX }}-${{ steps.get-version.outputs.version }}-${{ matrix.target.name }}
