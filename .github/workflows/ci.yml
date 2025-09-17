@@ -97,7 +97,7 @@ jobs:
           key: core-bin-${{ github.event.ref }}
 
       - name: Upload core binaries
-        if: ${{ steps.cache-bin.outputs.cache-hit != 'true' }}
+        if: ${{ steps.cache-bin.outputs.cache-hit == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           path: cache
