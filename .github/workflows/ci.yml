@@ -300,6 +300,7 @@ jobs:
           bin-dir: build/bin
 
       - name: Get version
+        if: ${{ !steps.cache-bin.outputs.cache-hit }}
         id: get-version
         uses: ./.github/actions/get-version
 
