@@ -313,6 +313,7 @@ jobs:
         run: |
           if [ "${{ inputs.skip-flatpak }}" == "true" ] && [ "${{ steps.vars.outputs.is-flatpak }}" == "true" ]; then
             echo "skipping=true" >> $GITHUB_OUTPUT
+            echo "skip-upload=true" >> $GITHUB_OUTPUT
             exit 0
           fi
 
@@ -398,7 +399,7 @@ jobs:
           target-dir: dist
 
       - name: Upload to GitHub
-        if: ${{ steps.vars.outputs.package-build || inputs.package-bin-zip }}
+        if: ${{ !steps.check-skip.outputs.skip-upload && (steps.vars.outputs.package-build || inputs.package-bin-zip) }}
         uses: actions/upload-artifact@v4
         with:
           name: package-${{ env.SYNERGY_PACKAGE_PREFIX }}-${{ steps.get-version.outputs.version }}-${{ matrix.target.name }}
