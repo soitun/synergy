@@ -144,6 +144,54 @@ jobs:
               options: --privileged
 
     steps:
+      - name: Setup variables
+        id: vars
+        shell: bash
+        run: |
+          if [ "${{ github.event.pull_request.draft }}" = "true" ]; then
+            echo "skip-package=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Linux
+        if: ${{ runner.os == 'Linux' && !startsWith(matrix.target.name, 'flatpak-') }}
+        id: setup-linux
+        shell: bash
+        run: |
+          . /etc/os-release
+          os=${ID_LIKE}
+          if [ -z "$os" ]; then
+            os=${ID}
+          fi
+
+          echo "Detected Linux: ${os}"
+          case "${os}" in
+            *debian*)
+              apt-get update
+              apt-get install -y git python3 python3-venv
+              ;;
+
+            *fedora*)
+              dnf install -y git python3
+              ;;
+
+            *suse*)
+              zypper refresh
+              zypper --non-interactive --no-gpg-checks \
+                install -y --force-resolution git python3
+              ;;
+
+            *arch*)
+              pacman -Syu --noconfirm git python sudo
+              useradd -m build
+              echo "package-user=build" >> $GITHUB_OUTPUT
+              ;;
+
+            *)
+              echo "Unsupported Linux: ${os}"
+              exit 1
+              ;;
+          esac
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -156,7 +204,59 @@ jobs:
         with:
           target-name: ${{ matrix.target.name }}
           target-arch: ${{ matrix.target.arch }}
-          skip-package: ${{ github.event.pull_request.draft }}
+
+      - name: Tests
+        if: ${{ !startsWith(matrix.target.name, 'flatpak-') }}
+        uses: ./.github/actions/run-tests
+        timeout-minutes: 2
+        with:
+          job: ${{ matrix.target.name }}
+          bin-dir: build/bin
+
+      - name: Get version
+        id: get-version
+        uses: ./.github/actions/get-version
+
+      - name: Package (Linux)
+        if: ${{ !steps.vars.outputs.skip-package && !startsWith(matrix.target.name, 'flatpak-') && runner.os == 'Linux' }}
+        run: ./scripts/package.py
+        env:
+          LINUX_PACKAGE_USER: ${{ steps.setup-linux.outputs.package-user }}
+
+      - name: Package (Flatpak)
+        if: ${{ !steps.vars.outputs.skip-package && steps.vars.outputs.is-flatpak }}
+        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: ${{ env.SYNERGY_PACKAGE_PREFIX }}-${{ steps.get-version.outputs.version }}-linux-${{ matrix.target.arch }}.flatpak
+          manifest-path: res/dist/flatpak/com.symless.synergy.yml
+          cache-key: flatpak-builder-${{ matrix.target.arch }}-2.0
+          arch: ${{ matrix.target.arch }}
+          upload-artifact: false
+
+      - name: Package (Windows)
+        if: ${{ !steps.vars.outputs.skip-package && runner.os == 'Windows' }}
+        run: python ./scripts/package.py
+        env:
+          WINDOWS_PFX_CERTIFICATE: ${{ secrets.WINDOWS_PFX }}
+          WINDOWS_PFX_PASSWORD: ${{ secrets.WINDOWS_PFX_PASS }}
+
+      - name: Package (macOS)
+        if: ${{ !steps.vars.outputs.skip-package && runner.os == 'macOS' }}
+        run: ./scripts/package.py
+        env:
+          APPLE_CODESIGN_ID: ${{ secrets.APPLE_CODESIGN_ID }}
+          APPLE_P12_CERTIFICATE: ${{ secrets.APPLE_P12_CERTIFICATE }}
+          APPLE_P12_PASSWORD: ${{ secrets.APPLE_P12_PASSWORD }}
+          APPLE_NOTARY_USER: ${{ secrets.APPLE_NOTARY_USER }}
+          APPLE_NOTARY_PASSWORD: ${{ secrets.APPLE_NOTARY_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Copy Flatpak bundle to dist
+        if: ${{ !steps.vars.outputs.skip-package && steps.vars.outputs.is-flatpak }}
+        run: |
+          mkdir -p dist
+          cp *.flatpak dist/
+          ls -l dist
 
       - name: Upload to GitHub
         uses: actions/upload-artifact@v4

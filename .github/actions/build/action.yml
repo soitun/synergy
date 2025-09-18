@@ -14,14 +14,6 @@ inputs:
     type: string
     required: false
     description: "Additional CMake arguments to pass to the configure step."
-  skip-tests:
-    type: boolean
-    required: false
-    description: "Whether to skip running tests. Defaults to false."
-  skip-package:
-    type: boolean
-    required: false
-    description: "Whether to skip packaging the build artifacts. Defaults to false."
 
 outputs:
   version:
@@ -60,52 +52,6 @@ runs:
 
         echo "cmake-args=$cmake_args" >> $GITHUB_OUTPUT
 
-        if [[ "${{ inputs.target-name }}" == flatpak* ]]; then
-          echo "is-flatpak=true" >> $GITHUB_OUTPUT
-        fi
-
-    - name: Setup Linux
-      if: ${{ runner.os == 'Linux' && !steps.vars.outputs.is-flatpak }}
-      id: setup-linux
-      shell: bash
-      env:
-        DEBIAN_FRONTEND: noninteractive
-      run: |
-        . /etc/os-release
-        os=${ID_LIKE}
-        if [ -z "$os" ]; then
-          os=${ID}
-        fi
-
-        echo "Detected Linux: ${os}"
-        case "${os}" in
-          *debian*)
-            apt update
-            apt install -y git python3 python3-venv
-            ;;
-
-          *fedora*)
-            dnf install -y git python3
-            ;;
-
-          *suse*)
-            zypper refresh
-            zypper --non-interactive --no-gpg-checks \
-              install -y --force-resolution git python3
-            ;;
-
-          *arch*)
-            pacman -Syu --noconfirm git python sudo
-            useradd -m build
-            echo "package-user=build" >> $GITHUB_OUTPUT
-            ;;
-
-          *)
-            echo "Unsupported Linux: ${os}"
-            exit 1
-            ;;
-        esac
-
     # By default, workspace dir is not trusted by Git on containers.
     - name: Setup Git (Linux)
       if: ${{ runner.os == 'Linux' }}
@@ -126,56 +72,3 @@ runs:
     - name: Build
       if: ${{ !steps.vars.outputs.is-flatpak }}
       run: cmake --build build -j8
-
-    - name: Tests
-      if: ${{ !inputs.skip-tests && !steps.vars.outputs.is-flatpak }}
-      uses: ./.github/actions/run-tests
-      timeout-minutes: 2
-      with:
-        job: ${{ inputs.target-name }}
-        bin-dir: build/bin
-
-    - name: Get version
-      id: get-version
-      uses: ./.github/actions/get-version
-
-    - name: Package (Linux)
-      if: ${{ !inputs.skip-package && !steps.vars.outputs.is-flatpak && runner.os == 'Linux' }}
-      run: ./scripts/package.py
-      env:
-        LINUX_PACKAGE_USER: ${{ steps.setup-linux.outputs.package-user }}
-
-    - name: Package (Flatpak)
-      if: ${{ !inputs.skip-package && steps.vars.outputs.is-flatpak }}
-      uses: flatpak/flatpak-github-actions/flatpak-builder@v6
-      with:
-        bundle: ${{ env.SYNERGY_PACKAGE_PREFIX }}-${{ steps.get-version.outputs.version }}-linux-${{inputs.target-arch}}.flatpak
-        manifest-path: res/dist/flatpak/com.symless.synergy.yml
-        cache-key: flatpak-builder-${{inputs.target-arch}}-2.0
-        arch: ${{inputs.target-arch}}
-        upload-artifact: false
-
-    - name: Package (Windows)
-      if: ${{ !inputs.skip-package && runner.os == 'Windows' }}
-      run: python ./scripts/package.py
-      env:
-        WINDOWS_PFX_CERTIFICATE: ${{ secrets.WINDOWS_PFX }}
-        WINDOWS_PFX_PASSWORD: ${{ secrets.WINDOWS_PFX_PASS }}
-
-    - name: Package (macOS)
-      if: ${{ !inputs.skip-package && runner.os == 'macOS' }}
-      run: ./scripts/package.py
-      env:
-        APPLE_CODESIGN_ID: ${{ secrets.APPLE_CODESIGN_ID }}
-        APPLE_P12_CERTIFICATE: ${{ secrets.APPLE_P12_CERTIFICATE }}
-        APPLE_P12_PASSWORD: ${{ secrets.APPLE_P12_PASSWORD }}
-        APPLE_NOTARY_USER: ${{ secrets.APPLE_NOTARY_USER }}
-        APPLE_NOTARY_PASSWORD: ${{ secrets.APPLE_NOTARY_PASSWORD }}
-        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-
-    - name: Copy Flatpak bundle to dist
-      if: ${{ !inputs.skip-package && steps.vars.outputs.is-flatpak }}
-      run: |
-        mkdir -p dist
-        cp *.flatpak dist/
-        ls -l dist
