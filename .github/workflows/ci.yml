@@ -274,7 +274,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: ${{ !steps.vars.outputs.skip-package }}
         with:
-          name: package-${{ env.SYNERGY_PACKAGE_PREFIX }}-${{ steps.build.outputs.version }}-${{ matrix.target.name }}
+          name: package-${{ env.SYNERGY_PACKAGE_PREFIX }}-${{ steps.get-version.outputs.version }}-${{ matrix.target.name }}
           path: dist
           if-no-files-found: error
 
