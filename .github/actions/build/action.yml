@@ -29,16 +29,19 @@ runs:
       run: |
         case "${{ runner.os }}" in
           "Windows")
+            shell="powershell"
             cmake_args="--preset=windows-release"
             cmake_args="$cmake_args -DCMAKE_MAKE_PROGRAM=C:/ProgramData/Chocolatey/bin/ninja.exe"
             ;;
 
           "macOS")
+            shell="bash"
             cmake_args="$cmake_args --preset=macos-release"
             cmake_args="$cmake_args -DCMAKE_OSX_SYSROOT=/Applications/Xcode_15.0.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk"
             ;;
 
           "Linux")
+            shell="bash"
             cmake_args="$cmake_args --preset=linux-release"
             cmake_args="$cmake_args -DCMAKE_INSTALL_PREFIX=/usr"
             ;;
@@ -60,9 +63,9 @@ runs:
       uses: ./.github/actions/install-deps
 
     - name: Configure
-      shell: bash
+      shell: ${{ steps.vars.outputs.shell }}
       run: cmake -B build ${{ steps.vars.outputs.cmake-args }} ${{ steps.get-deps.outputs.vcpkg-cmake-config }}
 
     - name: Build
-      shell: bash
+      shell: ${{ steps.vars.outputs.shell }}
       run: cmake --build build -j8
