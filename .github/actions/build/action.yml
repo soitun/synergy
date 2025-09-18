@@ -57,13 +57,9 @@ runs:
       shell: bash
       run: git config --global --add safe.directory $GITHUB_WORKSPACE
 
-    - name: Install dependencies
-      id: get-deps
-      uses: ./.github/actions/install-deps
-
     - name: Configure
       shell: ${{ steps.vars.outputs.shell }}
-      run: cmake -B build ${{ steps.vars.outputs.cmake-args }} ${{ steps.get-deps.outputs.vcpkg-cmake-config }}
+      run: cmake -B build ${{ steps.vars.outputs.cmake-args }}
 
     - name: Build
       shell: ${{ steps.vars.outputs.shell }}

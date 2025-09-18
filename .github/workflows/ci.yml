@@ -202,6 +202,10 @@ jobs:
           fetch-depth: 0
           submodules: true
 
+      - name: Install dependencies
+        id: install-deps
+        uses: ./.github/actions/install-deps
+
       - name: Build
         id: build
         if: ${{ !steps.vars.outputs.is-flatpak }}
@@ -209,7 +213,7 @@ jobs:
         with:
           target-name: ${{ matrix.target.name }}
           target-arch: ${{ matrix.target.arch }}
-          cmake-args: -DSYNERGY_VERSION_CHECK=${{ vars.SYNERGY_VERSION_CHECK }}
+          cmake-args: -DSYNERGY_VERSION_CHECK=${{ vars.SYNERGY_VERSION_CHECK }} ${{ steps.install-deps.outputs.vcpkg-cmake-config }}
 
       - name: Tests
         if: ${{ !steps.vars.outputs.is-flatpak }}
