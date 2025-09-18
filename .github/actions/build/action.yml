@@ -20,9 +20,6 @@ outputs:
     description: 'The version of the build'
     value: ${{ steps.get-version.outputs.version }}
 
-env:
-  QT_VERSION: 6.8.3
-
 runs:
   using: 'composite'
   steps:
@@ -61,8 +58,6 @@ runs:
       if: ${{ !steps.vars.outputs.is-flatpak }}
       id: get-deps
       uses: ./.github/actions/install-deps
-      with:
-        qt-version: ${{ env.QT_VERSION }}
 
     - name: Configure
       if: ${{ !steps.vars.outputs.is-flatpak }}
