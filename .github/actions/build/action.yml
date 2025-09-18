@@ -66,8 +66,10 @@ runs:
 
     - name: Configure
       if: ${{ !steps.vars.outputs.is-flatpak }}
+      shell: bash
       run: cmake -B build ${{ steps.vars.outputs.cmake-args }} ${{ steps.get-deps.outputs.vcpkg-cmake-config }}
 
     - name: Build
       if: ${{ !steps.vars.outputs.is-flatpak }}
+      shell: bash
       run: cmake --build build -j8
