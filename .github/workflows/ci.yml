@@ -23,10 +23,6 @@ on:
         type: boolean
         required: false
         description: "Whether to skip running tests. Defaults to false."
-      skip-flatpak:
-        type: boolean
-        required: false
-        description: "Whether to skip building the Flatpak package. Defaults to false."
       package-prefix:
         type: string
         required: false
@@ -256,40 +252,23 @@ jobs:
           path: dist
           key: ${{ matrix.target.name }}-bin-${{ inputs.ref }}
 
-      # This is getting a bit complicated; perhaps we should procedurally generate the matrix and/or
-      # split the cache logic out into a separate job which caches all or nothing to a single artifact.
-      - name: Check for skipping
-        id: check-skip
-        shell: bash
-        run: |
-          if [ "${{ inputs.skip-flatpak }}" == "true" ] && [ "${{ steps.vars.outputs.is-flatpak }}" == "true" ]; then
-            echo "skipping=true" >> $GITHUB_OUTPUT
-            echo "skip-upload=true" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          if [ "${{ steps.cache-bin.outputs.cache-hit }}" == "true" ]; then
-            echo "skipping=true" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
       - name: Install dependencies
-        if: ${{ !steps.check-skip.outputs.skipping && !steps.vars.outputs.is-flatpak }}
+        if: ${{ !steps.cache-bin.outputs.cache-hit && !steps.vars.outputs.is-flatpak }}
         id: get-deps
         uses: ./.github/actions/install-deps
         with:
           qt-version: ${{ env.QT_VERSION }}
 
       - name: Configure
-        if: ${{ !steps.check-skip.outputs.skipping && !steps.vars.outputs.is-flatpak }}
+        if: ${{ !steps.cache-bin.outputs.cache-hit && !steps.vars.outputs.is-flatpak }}
         run: cmake -B build ${{ steps.vars.outputs.cmake-args }} ${{ steps.get-deps.outputs.vcpkg-cmake-config }}
 
       - name: Build
-        if: ${{ !steps.check-skip.outputs.skipping && !steps.vars.outputs.is-flatpak }}
+        if: ${{ !steps.cache-bin.outputs.cache-hit && !steps.vars.outputs.is-flatpak }}
         run: cmake --build build -j8
 
       - name: Tests
-        if: ${{ !steps.check-skip.outputs.skipping && !inputs.skip-tests && !steps.vars.outputs.is-flatpak }}
+        if: ${{ !steps.cache-bin.outputs.cache-hit && !inputs.skip-tests && !steps.vars.outputs.is-flatpak }}
         uses: ./.github/actions/run-tests
         timeout-minutes: 2
         with:
@@ -297,18 +276,18 @@ jobs:
           bin-dir: build/bin
 
       - name: Get version
-        if: ${{ !steps.check-skip.outputs.skipping }}
+        if: ${{ !steps.cache-bin.outputs.cache-hit }}
         id: get-version
         uses: ./.github/actions/get-version
 
       - name: Package (Linux)
-        if: ${{ !steps.check-skip.outputs.skipping && steps.vars.outputs.package-build && !steps.vars.outputs.is-flatpak && runner.os == 'Linux' }}
+        if: ${{ !steps.cache-bin.outputs.cache-hit && steps.vars.outputs.package-build && !steps.vars.outputs.is-flatpak && runner.os == 'Linux' }}
         run: ./scripts/package.py
         env:
           LINUX_PACKAGE_USER: ${{ steps.setup-linux.outputs.package-user }}
 
       - name: Package (Flatpak)
-        if: ${{ !steps.check-skip.outputs.skipping && steps.vars.outputs.package-build && steps.vars.outputs.is-flatpak }}
+        if: ${{ !steps.cache-bin.outputs.cache-hit && steps.vars.outputs.package-build && steps.vars.outputs.is-flatpak }}
         uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
           bundle: ${{ env.SYNERGY_PACKAGE_PREFIX }}-${{ steps.get-version.outputs.version }}-linux-${{matrix.target.arch}}.flatpak
@@ -318,14 +297,14 @@ jobs:
           upload-artifact: false
 
       - name: Package (Windows)
-        if: ${{ !steps.check-skip.outputs.skipping && steps.vars.outputs.package-build && runner.os == 'Windows' }}
+        if: ${{ !steps.cache-bin.outputs.cache-hit && steps.vars.outputs.package-build && runner.os == 'Windows' }}
         run: python ./scripts/package.py
         env:
           WINDOWS_PFX_CERTIFICATE: ${{ secrets.WINDOWS_PFX }}
           WINDOWS_PFX_PASSWORD: ${{ secrets.WINDOWS_PFX_PASS }}
 
       - name: Package (macOS)
-        if: ${{ !steps.check-skip.outputs.skipping && steps.vars.outputs.package-build && runner.os == 'macOS' }}
+        if: ${{ !steps.cache-bin.outputs.cache-hit && steps.vars.outputs.package-build && runner.os == 'macOS' }}
         run: ./scripts/package.py
         env:
           APPLE_CODESIGN_ID: ${{ secrets.APPLE_CODESIGN_ID }}
@@ -336,21 +315,21 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Copy Flatpak bundle to dist
-        if: ${{ !steps.check-skip.outputs.skipping && steps.vars.outputs.package-build && steps.vars.outputs.is-flatpak }}
+        if: ${{ !steps.cache-bin.outputs.cache-hit && steps.vars.outputs.package-build && steps.vars.outputs.is-flatpak }}
         run: |
           mkdir -p dist
           cp *.flatpak dist/
           ls -l dist
 
       - name: Package (bin zip)
-        if: ${{ !steps.check-skip.outputs.skipping && inputs.package-bin-zip }}
+        if: ${{ !steps.cache-bin.outputs.cache-hit && inputs.package-bin-zip }}
         uses: ./.github/actions/dist-copy-bin
         with:
           source-dir: build/bin
           target-dir: dist
 
       - name: Upload to GitHub
-        if: ${{ !steps.check-skip.outputs.skip-upload && (steps.vars.outputs.package-build || inputs.package-bin-zip) }}
+        if: ${{ steps.vars.outputs.package-build || inputs.package-bin-zip }}
         uses: actions/upload-artifact@v4
         with:
           name: package-${{ env.SYNERGY_PACKAGE_PREFIX }}-${{ steps.get-version.outputs.version }}-${{ matrix.target.name }}
