@@ -204,6 +204,7 @@ jobs:
         with:
           target-name: ${{ matrix.target.name }}
           target-arch: ${{ matrix.target.arch }}
+          cmake-args: -DSYNERGY_VERSION_CHECK=${{ vars.SYNERGY_VERSION_CHECK }}
 
       - name: Tests
         if: ${{ !startsWith(matrix.target.name, 'flatpak-') }}

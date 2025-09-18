@@ -47,7 +47,6 @@ runs:
         esac
 
         cmake_args="$cmake_args -DUSE_TOMLPLUSPLUS=OFF -DUSE_CLI11=OFF"
-        cmake_args="$cmake_args -DSYNERGY_VERSION_CHECK=${{ vars.SYNERGY_VERSION_CHECK }}"
         cmake_args="$cmake_args ${{ inputs.cmake-args }}"
 
         echo "cmake-args=$cmake_args" >> $GITHUB_OUTPUT
