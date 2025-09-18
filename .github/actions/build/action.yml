@@ -2,6 +2,14 @@ name: 'Build'
 description: 'Build and package Synergy'
 
 inputs:
+  target-name:
+    type: string
+    required: true
+    description: "The name of the target being built (e.g. windows-2022-x64)."
+  target-arch:
+    type: string
+    required: true
+    description: "The architecture of the target being built (e.g. x86_64, arm64)."
   cmake-args:
     type: string
     required: false
@@ -10,15 +18,18 @@ inputs:
     type: boolean
     required: false
     description: "Whether to skip running tests. Defaults to false."
-  package-prefix:
-    type: string
+  skip-package:
+    type: boolean
     required: false
-    description: "The prefix to use for the package name."
+    description: "Whether to skip packaging the build artifacts. Defaults to false."
 
 outputs:
   version:
     description: 'The version of the build'
     value: ${{ steps.get-version.outputs.version }}
+
+env:
+  QT_VERSION: 6.8.3
 
 runs:
   using: 'composite'
@@ -39,11 +50,6 @@ runs:
 
           "Linux")
             cmake_args="$cmake_args --preset=linux-release"
-            
-            if [ "${{ matrix.target.static-libportal }}" == "true" ]; then
-              cmake_args="$cmake_args -DSYSTEM_LIBPORTAL=OFF -DSTATIC_LIBPORTAL=ON"
-            fi
-
             cmake_args="$cmake_args -DCMAKE_INSTALL_PREFIX=/usr"
             ;;
         esac
@@ -54,12 +60,8 @@ runs:
 
         echo "cmake-args=$cmake_args" >> $GITHUB_OUTPUT
 
-        if [[ "${{ matrix.target.name }}" == flatpak* ]]; then
+        if [[ "${{ inputs.target-name }}" == flatpak* ]]; then
           echo "is-flatpak=true" >> $GITHUB_OUTPUT
-        fi
-
-        if [[ "${{ github.event.pull_request.draft }}" == "false" && "${{ inputs.package-bin-zip }}" != "true" ]]; then
-          echo "package-build=true" >> $GITHUB_OUTPUT
         fi
 
     - name: Setup Linux
@@ -130,39 +132,38 @@ runs:
       uses: ./.github/actions/run-tests
       timeout-minutes: 2
       with:
-        job: ${{ matrix.target.name }}
+        job: ${{ inputs.target-name }}
         bin-dir: build/bin
 
     - name: Get version
-      if: ${{ !steps.cache-bin.outputs.cache-hit }}
       id: get-version
       uses: ./.github/actions/get-version
 
     - name: Package (Linux)
-      if: ${{ steps.vars.outputs.package-build && !steps.vars.outputs.is-flatpak && runner.os == 'Linux' }}
+      if: ${{ !inputs.skip-package && !steps.vars.outputs.is-flatpak && runner.os == 'Linux' }}
       run: ./scripts/package.py
       env:
         LINUX_PACKAGE_USER: ${{ steps.setup-linux.outputs.package-user }}
 
     - name: Package (Flatpak)
-      if: ${{ steps.vars.outputs.package-build && steps.vars.outputs.is-flatpak }}
+      if: ${{ !inputs.skip-package && steps.vars.outputs.is-flatpak }}
       uses: flatpak/flatpak-github-actions/flatpak-builder@v6
       with:
-        bundle: ${{ env.SYNERGY_PACKAGE_PREFIX }}-${{ steps.get-version.outputs.version }}-linux-${{matrix.target.arch}}.flatpak
+        bundle: ${{ env.SYNERGY_PACKAGE_PREFIX }}-${{ steps.get-version.outputs.version }}-linux-${{inputs.target-arch}}.flatpak
         manifest-path: res/dist/flatpak/com.symless.synergy.yml
-        cache-key: flatpak-builder-${{matrix.target.arch}}-2.0
-        arch: ${{matrix.target.arch}}
+        cache-key: flatpak-builder-${{inputs.target-arch}}-2.0
+        arch: ${{inputs.target-arch}}
         upload-artifact: false
 
     - name: Package (Windows)
-      if: ${{ steps.vars.outputs.package-build && runner.os == 'Windows' }}
+      if: ${{ !inputs.skip-package && runner.os == 'Windows' }}
       run: python ./scripts/package.py
       env:
         WINDOWS_PFX_CERTIFICATE: ${{ secrets.WINDOWS_PFX }}
         WINDOWS_PFX_PASSWORD: ${{ secrets.WINDOWS_PFX_PASS }}
 
     - name: Package (macOS)
-      if: ${{ steps.vars.outputs.package-build && runner.os == 'macOS' }}
+      if: ${{ !inputs.skip-package && runner.os == 'macOS' }}
       run: ./scripts/package.py
       env:
         APPLE_CODESIGN_ID: ${{ secrets.APPLE_CODESIGN_ID }}
@@ -173,7 +174,7 @@ runs:
         APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
     - name: Copy Flatpak bundle to dist
-      if: ${{ steps.vars.outputs.package-build && steps.vars.outputs.is-flatpak }}
+      if: ${{ !inputs.skip-package && steps.vars.outputs.is-flatpak }}
       run: |
         mkdir -p dist
         cp *.flatpak dist/

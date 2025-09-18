@@ -27,14 +27,10 @@ on:
     - cron: "0 5 * * *" # 5am UTC
 
 env:
-  QT_VERSION: 6.8.3
-  GIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   SYNERGY_PRODUCT_NAME: ${{ vars.SYNERGY_PRODUCT_NAME }}
   SYNERGY_EDITION_TYPE: ${{ vars.SYNERGY_EDITION_TYPE }}
-  SYNERGY_PACKAGE_PREFIX: ${{ inputs.package-prefix || vars.SYNERGY_PACKAGE_PREFIX }}
+  SYNERGY_PACKAGE_PREFIX: ${{ vars.SYNERGY_PACKAGE_PREFIX }}
   SYNERGY_ENABLE_ACTIVATION: ${{ vars.SYNERGY_ENABLE_ACTIVATION }}
-  GIT_REPOSITORY: ${{ inputs.repository || github.repository }}
-  GIT_REF: ${{ inputs.ref || github.ref }}
 
   # Used to determine the version number format (should simply use the contents of `VERSION` file).
   SYNERGY_VERSION_RELEASE: ${{ github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.test-release == 'true') }}
@@ -157,6 +153,10 @@ jobs:
       - name: Build
         id: build
         uses: ./.github/actions/build
+        with:
+          target-name: ${{ matrix.target.name }}
+          target-arch: ${{ matrix.target.arch }}
+          skip-package: ${{ github.event.pull_request.draft }}
 
       - name: Upload to GitHub
         uses: actions/upload-artifact@v4
