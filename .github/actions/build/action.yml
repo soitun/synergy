@@ -55,16 +55,13 @@ runs:
       run: git config --global --add safe.directory $GITHUB_WORKSPACE
 
     - name: Install dependencies
-      if: ${{ !steps.vars.outputs.is-flatpak }}
       id: get-deps
       uses: ./.github/actions/install-deps
 
     - name: Configure
-      if: ${{ !steps.vars.outputs.is-flatpak }}
       shell: bash
       run: cmake -B build ${{ steps.vars.outputs.cmake-args }} ${{ steps.get-deps.outputs.vcpkg-cmake-config }}
 
     - name: Build
-      if: ${{ !steps.vars.outputs.is-flatpak }}
       shell: bash
       run: cmake --build build -j8

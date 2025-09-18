@@ -200,6 +200,7 @@ jobs:
 
       - name: Build
         id: build
+        if: ${{ !startsWith(matrix.target.name, 'flatpak-') }}
         uses: ./.github/actions/build
         with:
           target-name: ${{ matrix.target.name }}
