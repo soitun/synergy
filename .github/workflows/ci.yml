@@ -117,9 +117,9 @@ jobs:
             runs-on: ubuntu-latest
             container: fedora:40
 
-          # - name: opensuse-tumbleweed-x86_64
-          #   runs-on: ubuntu-latest
-          #   container: opensuse/tumbleweed:latest
+          - name: opensuse-tumbleweed-x86_64
+            runs-on: ubuntu-latest
+            container: opensuse/tumbleweed:latest
 
           - name: arch-linux-x86_64
             runs-on: ubuntu-latest
