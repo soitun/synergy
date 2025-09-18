@@ -30,6 +30,7 @@ runs:
         case "${{ runner.os }}" in
           "Windows")
             cmake_args="--preset=windows-release"
+            cmake_args="$cmake_args -DCMAKE_MAKE_PROGRAM=C:/ProgramData/Chocolatey/bin/ninja.exe"
             ;;
 
           "macOS")
