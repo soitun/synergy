@@ -204,6 +204,7 @@ jobs:
 
       - name: Install dependencies
         id: install-deps
+        if: ${{ !steps.vars.outputs.is-flatpak }}
         uses: ./.github/actions/install-deps
 
       - name: Build
