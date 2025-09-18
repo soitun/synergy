@@ -2,6 +2,9 @@ name: 'Build'
 description: 'Build and package Synergy'
 
 inputs:
+  working-directory:
+    description: "The working directory for the action."
+    required: false
   target-name:
     type: string
     required: true
@@ -26,6 +29,7 @@ runs:
     - name: Setup variables
       id: vars
       shell: bash
+      working-directory: ${{ inputs.working-directory }}
       run: |
         case "${{ runner.os }}" in
           "Windows")
@@ -59,8 +63,10 @@ runs:
 
     - name: Configure
       shell: ${{ steps.vars.outputs.shell }}
+      working-directory: ${{ inputs.working-directory }}
       run: cmake -B build ${{ steps.vars.outputs.cmake-args }}
 
     - name: Build
       shell: ${{ steps.vars.outputs.shell }}
+      working-directory: ${{ inputs.working-directory }}
       run: cmake --build build -j8
