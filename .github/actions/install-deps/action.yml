@@ -68,7 +68,7 @@ runs:
       id: vcpkg
       uses: johnwason/vcpkg-action@v7
       with:
-        manifest-dir: ${{ github.workspace }}
+        manifest-dir: ${{ github.workspace }}/${{ inputs.working-directory }}
         triplet: x64-windows-release
         token: ${{ github.token }}
 
