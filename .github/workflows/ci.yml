@@ -31,6 +31,10 @@ on:
         type: boolean
         required: false
         description: "Whether to only package the binaries in a zip file. Defaults to false."
+      target-filter:
+        type: string
+        required: false
+        description: "A filter to select specific targets to build."
   workflow_dispatch:
     inputs:
       test-release:
