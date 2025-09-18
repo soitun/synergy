@@ -152,8 +152,12 @@ jobs:
             echo "skip-package=true" >> $GITHUB_OUTPUT
           fi
 
+          if [[ "${{ matrix.target.name }}" == flatpak* ]]; then
+            echo "is-flatpak=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Setup Linux
-        if: ${{ runner.os == 'Linux' && !startsWith(matrix.target.name, 'flatpak-') }}
+        if: ${{ runner.os == 'Linux' && !steps.vars.outputs.is-flatpak }}
         id: setup-linux
         shell: bash
         run: |
@@ -200,7 +204,7 @@ jobs:
 
       - name: Build
         id: build
-        if: ${{ !startsWith(matrix.target.name, 'flatpak-') }}
+        if: ${{ !steps.vars.outputs.is-flatpak }}
         uses: ./.github/actions/build
         with:
           target-name: ${{ matrix.target.name }}
@@ -208,7 +212,7 @@ jobs:
           cmake-args: -DSYNERGY_VERSION_CHECK=${{ vars.SYNERGY_VERSION_CHECK }}
 
       - name: Tests
-        if: ${{ !startsWith(matrix.target.name, 'flatpak-') }}
+        if: ${{ !steps.vars.outputs.is-flatpak }}
         uses: ./.github/actions/run-tests
         timeout-minutes: 2
         with:
@@ -216,12 +220,12 @@ jobs:
           bin-dir: build/bin
 
       - name: Get version
-        if: ${{ !steps.vars.outputs.skip-package && steps.vars.outputs.is-flatpak }}
+        if: ${{ !steps.vars.outputs.skip-package && !steps.vars.outputs.is-flatpak }}
         id: get-version
         uses: ./.github/actions/get-version
 
       - name: Package (Linux)
-        if: ${{ !steps.vars.outputs.skip-package && !startsWith(matrix.target.name, 'flatpak-') && runner.os == 'Linux' }}
+        if: ${{ !steps.vars.outputs.skip-package && !steps.vars.outputs.is-flatpak && runner.os == 'Linux' }}
         run: ./scripts/package.py
         env:
           LINUX_PACKAGE_USER: ${{ steps.setup-linux.outputs.package-user }}
