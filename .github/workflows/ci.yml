@@ -5,32 +5,6 @@
 name: CI
 
 on:
-  workflow_call:
-    inputs:
-      repository:
-        type: string
-        required: false
-        description: "The repository check out. Defaults to the current repository."
-      ref:
-        type: string
-        required: false
-        description: "The ref to check out. Defaults to the current ref."
-      cmake-args:
-        type: string
-        required: false
-        description: "Additional CMake arguments to pass to the configure step."
-      skip-tests:
-        type: boolean
-        required: false
-        description: "Whether to skip running tests. Defaults to false."
-      package-prefix:
-        type: string
-        required: false
-        description: "The prefix to use for the package name."
-      package-bin-zip:
-        type: boolean
-        required: false
-        description: "Whether to only package the binaries in a zip file. Defaults to false."
   workflow_dispatch:
     inputs:
       test-release:
@@ -53,15 +27,10 @@ on:
     - cron: "0 5 * * *" # 5am UTC
 
 env:
-  QT_VERSION: 6.8.3
-  GIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   SYNERGY_PRODUCT_NAME: ${{ vars.SYNERGY_PRODUCT_NAME }}
   SYNERGY_EDITION_TYPE: ${{ vars.SYNERGY_EDITION_TYPE }}
-  SYNERGY_PACKAGE_PREFIX: ${{ inputs.package-prefix || vars.SYNERGY_PACKAGE_PREFIX }}
+  SYNERGY_PACKAGE_PREFIX: ${{ vars.SYNERGY_PACKAGE_PREFIX }}
   SYNERGY_ENABLE_ACTIVATION: ${{ vars.SYNERGY_ENABLE_ACTIVATION }}
-  PACKAGE_BUILD: ${{ !github.event.pull_request.draft && !inputs.package-bin-zip }}
-  GIT_REPOSITORY: ${{ inputs.repository || github.repository }}
-  GIT_REF: ${{ inputs.ref || github.ref }}
 
   # Used to determine the version number format (should simply use the contents of `VERSION` file).
   SYNERGY_VERSION_RELEASE: ${{ github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.test-release == 'true') }}
@@ -80,7 +49,6 @@ jobs:
       - run: echo "✅ CI passed" > $GITHUB_STEP_SUMMARY
 
   main:
-    if: ${{ !github.event.pull_request.draft }}
     name: main / ${{ matrix.target.name }}
     runs-on: ${{ matrix.target.runs-on }}
     container: ${{ matrix.target.container }}
@@ -180,32 +148,9 @@ jobs:
         id: vars
         shell: bash
         run: |
-          case "${{ runner.os }}" in
-            "Windows")
-              cmake_args="--preset=windows-release"
-              ;;
-
-            "macOS")
-              cmake_args="$cmake_args --preset=macos-release"
-              cmake_args="$cmake_args -DCMAKE_OSX_SYSROOT=/Applications/Xcode_15.0.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk"
-              ;;
-
-            "Linux")
-              cmake_args="$cmake_args --preset=linux-release"
-              
-              if [ "${{ matrix.target.static-libportal }}" == "true" ]; then
-                cmake_args="$cmake_args -DSYSTEM_LIBPORTAL=OFF -DSTATIC_LIBPORTAL=ON"
-              fi
-
-              cmake_args="$cmake_args -DCMAKE_INSTALL_PREFIX=/usr"
-              ;;
-          esac
-
-          cmake_args="$cmake_args -DUSE_TOMLPLUSPLUS=OFF -DUSE_CLI11=OFF"
-          cmake_args="$cmake_args -DSYNERGY_VERSION_CHECK=${{ vars.SYNERGY_VERSION_CHECK }}"
-          cmake_args="$cmake_args ${{ inputs.cmake-args }}"
-
-          echo "cmake-args=$cmake_args" >> $GITHUB_OUTPUT
+          if [ "${{ github.event.pull_request.draft }}" = "true" ]; then
+            echo "skip-package=true" >> $GITHUB_OUTPUT
+          fi
 
           if [[ "${{ matrix.target.name }}" == flatpak* ]]; then
             echo "is-flatpak=true" >> $GITHUB_OUTPUT
@@ -215,8 +160,6 @@ jobs:
         if: ${{ runner.os == 'Linux' && !steps.vars.outputs.is-flatpak }}
         id: setup-linux
         shell: bash
-        env:
-          DEBIAN_FRONTEND: noninteractive
         run: |
           . /etc/os-release
           os=${ID_LIKE}
@@ -227,8 +170,8 @@ jobs:
           echo "Detected Linux: ${os}"
           case "${os}" in
             *debian*)
-              apt update
-              apt install -y git python3 python3-venv
+              apt-get update
+              apt-get install -y git python3 python3-venv
               ;;
 
             *fedora*)
@@ -253,46 +196,28 @@ jobs:
               ;;
           esac
 
-      # By default, workspace dir is not trusted by Git on containers.
-      - name: Setup Git (Linux)
-        if: ${{ runner.os == 'Linux' }}
-        shell: bash
-        run: git config --global --add safe.directory $GITHUB_WORKSPACE
-
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          repository: ${{ env.GIT_REPOSITORY }}
-          ref: ${{ env.GIT_REF }}
           fetch-depth: 0
           submodules: true
 
-      # Only use caching for workflow calls, since in every other case the SHA will likely change.
-      - name: Cache binaries
-        if: ${{ inputs.ref }}
-        uses: actions/cache@v4
-        id: cache-bin
-        with:
-          path: dist
-          key: ${{ matrix.target.name }}-bin-${{ inputs.ref }}
-
       - name: Install dependencies
-        if: ${{ !steps.cache-bin.outputs.cache-hit && !steps.vars.outputs.is-flatpak }}
-        id: get-deps
+        id: install-deps
+        if: ${{ !steps.vars.outputs.is-flatpak }}
         uses: ./.github/actions/install-deps
-        with:
-          qt-version: ${{ env.QT_VERSION }}
-
-      - name: Configure
-        if: ${{ !steps.cache-bin.outputs.cache-hit && !steps.vars.outputs.is-flatpak }}
-        run: cmake -B build ${{ steps.vars.outputs.cmake-args }} ${{ steps.get-deps.outputs.vcpkg-cmake-config }}
 
       - name: Build
-        if: ${{ !steps.cache-bin.outputs.cache-hit && !steps.vars.outputs.is-flatpak }}
-        run: cmake --build build -j8
+        id: build
+        if: ${{ !steps.vars.outputs.is-flatpak }}
+        uses: ./.github/actions/build
+        with:
+          target-name: ${{ matrix.target.name }}
+          target-arch: ${{ matrix.target.arch }}
+          cmake-args: -DSYNERGY_VERSION_CHECK=${{ vars.SYNERGY_VERSION_CHECK }} ${{ steps.install-deps.outputs.vcpkg-cmake-config }}
 
       - name: Tests
-        if: ${{ !steps.cache-bin.outputs.cache-hit && !inputs.skip-tests && !steps.vars.outputs.is-flatpak }}
+        if: ${{ !steps.vars.outputs.is-flatpak }}
         uses: ./.github/actions/run-tests
         timeout-minutes: 2
         with:
@@ -300,34 +225,35 @@ jobs:
           bin-dir: build/bin
 
       - name: Get version
+        if: ${{ !steps.vars.outputs.skip-package && !steps.vars.outputs.is-flatpak }}
         id: get-version
         uses: ./.github/actions/get-version
 
       - name: Package (Linux)
-        if: ${{ !steps.cache-bin.outputs.cache-hit && env.PACKAGE_BUILD && runner.os == 'Linux' && !steps.vars.outputs.is-flatpak }}
+        if: ${{ !steps.vars.outputs.skip-package && !steps.vars.outputs.is-flatpak && runner.os == 'Linux' }}
         run: ./scripts/package.py
         env:
           LINUX_PACKAGE_USER: ${{ steps.setup-linux.outputs.package-user }}
 
       - name: Package (Flatpak)
-        if: ${{ !steps.cache-bin.outputs.cache-hit && env.PACKAGE_BUILD && steps.vars.outputs.is-flatpak }}
+        if: ${{ !steps.vars.outputs.skip-package && steps.vars.outputs.is-flatpak }}
         uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
-          bundle: ${{ env.SYNERGY_PACKAGE_PREFIX }}-${{ steps.get-version.outputs.version }}-linux-${{matrix.target.arch}}.flatpak
+          bundle: ${{ env.SYNERGY_PACKAGE_PREFIX }}-${{ steps.get-version.outputs.version }}-linux-${{ matrix.target.arch }}.flatpak
           manifest-path: res/dist/flatpak/com.symless.synergy.yml
-          cache-key: flatpak-builder-${{matrix.target.arch}}-2.0
-          arch: ${{matrix.target.arch}}
+          cache-key: flatpak-builder-${{ matrix.target.arch }}-2.0
+          arch: ${{ matrix.target.arch }}
           upload-artifact: false
 
       - name: Package (Windows)
-        if: ${{ !steps.cache-bin.outputs.cache-hit && env.PACKAGE_BUILD && runner.os == 'Windows' }}
+        if: ${{ !steps.vars.outputs.skip-package && runner.os == 'Windows' }}
         run: python ./scripts/package.py
         env:
           WINDOWS_PFX_CERTIFICATE: ${{ secrets.WINDOWS_PFX }}
           WINDOWS_PFX_PASSWORD: ${{ secrets.WINDOWS_PFX_PASS }}
 
       - name: Package (macOS)
-        if: ${{ !steps.cache-bin.outputs.cache-hit && env.PACKAGE_BUILD && runner.os == 'macOS' }}
+        if: ${{ !steps.vars.outputs.skip-package && runner.os == 'macOS' }}
         run: ./scripts/package.py
         env:
           APPLE_CODESIGN_ID: ${{ secrets.APPLE_CODESIGN_ID }}
@@ -337,23 +263,16 @@ jobs:
           APPLE_NOTARY_PASSWORD: ${{ secrets.APPLE_NOTARY_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
-      - name: Package (bin zip)
-        if: ${{ !steps.cache-bin.outputs.cache-hit && env.PACKAGE_BUILD && inputs.package-bin-zip }}
-        uses: ./.github/actions/dist-copy-bin
-        with:
-          source-dir: build/bin
-          target-dir: dist
-
       - name: Copy Flatpak bundle to dist
-        if: ${{ !steps.cache-bin.outputs.cache-hit && env.PACKAGE_BUILD && steps.vars.outputs.is-flatpak }}
+        if: ${{ !steps.vars.outputs.skip-package && steps.vars.outputs.is-flatpak }}
         run: |
           mkdir -p dist
           cp *.flatpak dist/
           ls -l dist
 
       - name: Upload to GitHub
-        if: ${{ !steps.cache-bin.outputs.cache-hit && env.PACKAGE_BUILD }}
         uses: actions/upload-artifact@v4
+        if: ${{ !steps.vars.outputs.skip-package }}
         with:
           name: package-${{ env.SYNERGY_PACKAGE_PREFIX }}-${{ steps.get-version.outputs.version }}-${{ matrix.target.name }}
           path: dist
@@ -380,8 +299,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          repository: ${{ env.GIT_REPOSITORY }}
-          ref: ${{ env.GIT_REF }}
           fetch-depth: 0
           submodules: true
 

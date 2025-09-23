@@ -4,10 +4,13 @@
 name: "Install dependencies"
 
 inputs:
-  qt-version:
-    description: "The version of Qt to install on mac os"
+  working-directory:
+    description: "The working directory for the action."
     required: false
-    default: ""
+  qt-version:
+    description: "The version of Qt to install on macOS and Windows."
+    required: false
+    default: "6.8.3"
 
 outputs:
   vcpkg-cmake-config:
@@ -20,19 +23,22 @@ runs:
   steps:
     - name: Install dependencies
       if: ${{ runner.os == 'Linux' || runner.os == 'macOS' }}
-      run: ./scripts/install_deps.sh ${args}
       shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: ./scripts/install_deps.sh ${args}
 
     # HACK: Needed for GTest on Windows (installed bia Meson).
     - name: Install Meson deps (Windows)
       if: ${{ runner.os == 'Windows' }}
       shell: pwsh
+      working-directory: ${{ inputs.working-directory }}
       run: python ./scripts/install_deps.py
 
     # Installs some Python deps (e.g. pip, etc) and the venv needed for the package step.
     - name: Setup Python env (Linux & macOS)
       if: ${{ runner.os == 'Linux' || runner.os == 'macOS' }}
       shell: bash
+      working-directory: ${{ inputs.working-directory }}
       run: ./scripts/install_deps.py
 
     - name: Install Qt (macOS)
@@ -57,19 +63,12 @@ runs:
         cache: true
         cache-key-prefix: windows-qt-${{ inputs.qt-version }}
 
-    # Install Ninja with an action instead of using Chocolatey, as it's more
-    # reliable and faster. The Ninja install action is pretty good as it
-    # downloads directly from the `ninja-build` GitHub project releases.
-    - name: Install Ninja
-      if: ${{ runner.os == 'Windows' }}
-      uses: seanmiddleditch/gha-setup-ninja@master
-
     - name: Build and cache vcpkg
       if: ${{ runner.os == 'Windows' }}
       id: vcpkg
       uses: johnwason/vcpkg-action@v7
       with:
-        manifest-dir: ${{ github.workspace }}
+        manifest-dir: ${{ github.workspace }}/${{ inputs.working-directory }}
         triplet: x64-windows-release
         token: ${{ github.token }}
 
