@@ -19,7 +19,6 @@ set(lib_name app)
 file(GLOB headers "*.h" "languages/*.h" "ipc/*.h")
 file(GLOB sources "*.cpp" "languages/*.cpp" "ipc/*.cpp")
 
-# arch
 if(WIN32)
   file(GLOB arch_headers "win32/*.h")
   file(GLOB arch_sources "win32/*.cpp")
@@ -39,12 +38,15 @@ list(APPEND headers ${arch_headers})
 if(ADD_HEADERS_TO_SOURCES)
   list(APPEND sources ${headers})
 endif()
-
+  
 add_library(${lib_name} STATIC ${sources})
 
-target_link_libraries(${lib_name} PRIVATE Qt6::Core Qt6::Network)
+if(WIN32)
 
-if(UNIX)
+  target_link_libraries(${lib_name} PRIVATE Qt6::Core Qt6::Network)
+
+elseif(UNIX)
+
   target_link_libraries(
     ${lib_name}
     PRIVATE
