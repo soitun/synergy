@@ -22,6 +22,7 @@
 #endif
 
 #include "common/constants.h"
+#include "version.h"
 
 #include <QLocale>
 #include <QNetworkAccessManager>

@@ -27,7 +27,6 @@ macro(set_version)
   message(VERBOSE "Version file output: ${version_file}")
 
   message(STATUS "Version number (semver): " ${DESKFLOW_VERSION})
-  add_definitions(-DDESKFLOW_VERSION="${DESKFLOW_VERSION}")
 
   # Arch does not support SemVer or DEB/RPM version format, so use the four-part
   # version format which funnily enough is what Microsoft requires for MSI.
