@@ -74,6 +74,7 @@ public:
   virtual KeyModifierMask pollActiveModifiers() const;
   virtual SInt32 pollActiveGroup() const;
   virtual void pollPressedKeys(KeyButtonSet &pressedKeys) const;
+  virtual void clearStaleModifiers();
 
   virtual void setDraggingStarted(bool started)
   {
