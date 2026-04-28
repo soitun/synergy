@@ -99,20 +99,37 @@ void DaemonApp::setElevate(bool elevate)
 void DaemonApp::applyWatchdogCommand() const
 {
 #if SYSAPI_WIN32
+  if (m_mode != "server" && m_mode != "client") {
+    LOG_ERR("cannot apply watchdog command: invalid or unset mode: %s", m_mode.toUtf8().constData());
+    return;
+  }
+
+  const auto appDir = QCoreApplication::applicationDirPath();
+
+#ifdef BUILD_UNIFIED
+  const auto binName = QStringLiteral(CORE_BINARY_NAME ".exe");
+#else
   QString binName;
   if (m_mode == "server") {
     binName = QStringLiteral(SERVER_BINARY_NAME ".exe");
   } else if (m_mode == "client") {
     binName = QStringLiteral(CLIENT_BINARY_NAME ".exe");
-  } else {
-    LOG_ERR("cannot apply watchdog command: invalid or unset mode: %s", m_mode.toUtf8().constData());
+  }
+#endif
+
+  const auto binPath = QStringLiteral("%1/%2").arg(appDir, binName);
+  if (!std::filesystem::exists(binPath.toStdString())) {
+    LOG_ERR("cannot apply watchdog command: binary does not exist at path: %s", binPath.toUtf8().constData());
     return;
   }
 
-  const auto binPath = QStringLiteral("%1/%2").arg(QCoreApplication::applicationDirPath(), binName);
+#ifdef BUILD_UNIFIED
+  const auto command = QStringLiteral("\"%1\" %2 %3").arg(binPath, m_mode, m_args).toStdString();
+#else
   const auto command = QStringLiteral("\"%1\" %2").arg(binPath, m_args).toStdString();
+#endif
 
-  LOG_DEBUG("applying watchdog command (elevate: %s)", m_elevate ? "yes" : "no");
+  LOG_INFO("running command (%s): %s", m_elevate ? "elevated" : "non-elevated", command.c_str());
   m_pWatchdog->setProcessConfig(command, m_elevate);
 #else
   LOG_ERR("applying watchdog command not implemented on this platform");
