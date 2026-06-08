@@ -23,12 +23,16 @@ target:
     runs-on: ubuntu-latest
     container: ubuntu:26.04
 
+  - name: ubuntu-26.04-arm64
+    runs-on: ubuntu-24.04-arm
+    container: ubuntu:26.04
+
   - name: ubuntu-24.04-x86_64
     runs-on: ubuntu-latest
     container: ubuntu:24.04
 
   - name: ubuntu-24.04-arm64
-    runs-on: ubuntu-24.04-8-core-arm64
+    runs-on: ubuntu-24.04-arm
     container: ubuntu:24.04
 
   - name: ubuntu-22.04-x86_64
@@ -36,11 +40,11 @@ target:
     container: ubuntu:22.04
 
   - name: ubuntu-22.04-arm64
-    runs-on: ubuntu-24.04-8-core-arm64
+    runs-on: ubuntu-24.04-arm
     container: ubuntu:22.04
 
   - name: fedora-44-arm64
-    runs-on: ubuntu-24.04-8-core-arm64
+    runs-on: ubuntu-24.04-arm
     container: fedora:44
 
   - name: fedora-44-x86_64
@@ -48,7 +52,7 @@ target:
     container: fedora:44
 
   - name: fedora-43-arm64
-    runs-on: ubuntu-24.04-8-core-arm64
+    runs-on: ubuntu-24.04-arm
     container: fedora:43
 
   - name: fedora-43-x86_64
@@ -56,20 +60,12 @@ target:
     container: fedora:43
 
   - name: fedora-42-arm64
-    runs-on: ubuntu-24.04-8-core-arm64
+    runs-on: ubuntu-24.04-arm
     container: fedora:42
 
   - name: fedora-42-x86_64
     runs-on: ubuntu-latest
     container: fedora:42
-
-  - name: fedora-41-x86_64
-    runs-on: ubuntu-latest
-    container: fedora:41
-
-  - name: fedora-40-x86_84
-    runs-on: ubuntu-latest
-    container: fedora:40
 
   - name: opensuse-tumbleweed-x86_64
     runs-on: ubuntu-latest
@@ -91,7 +87,7 @@ target:
       options: --privileged
 
   - name: flatpak-arm64
-    runs-on: ubuntu-24.04-8-core-arm64
+    runs-on: ubuntu-24.04-arm
     arch: aarch64
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:kde-6.8
