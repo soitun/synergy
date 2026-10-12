@@ -27,8 +27,6 @@
 #include <QTextStream>
 #include <QThread>
 
-#include <memory>
-
 void qtMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &message)
 {
   const auto utf8 = message.toUtf8();
@@ -72,13 +70,11 @@ App *createApp(const CoreArgParser &parser, EventQueue &events, const QString &p
 int main(int argc, char **argv)
 {
 #if defined(Q_OS_WIN)
-  {
-    // HACK to make sure settings gets the correct qApp path
-    QCoreApplication m(argc, argv);
-  }
-
   ArchMiscWindows::setInstanceWin32(GetModuleHandle(nullptr));
 #endif
+
+  QApplication::setApplicationName(QStringLiteral("%1 Core").arg(kAppName));
+  QApplication app(argc, argv);
 
   Arch arch;
   arch.init();
@@ -86,18 +82,7 @@ int main(int argc, char **argv)
   Log log;
   qInstallMessageHandler(qtMessageHandler);
 
-  QStringList args;
-  for (int i = 0; i < argc; i++)
-    args.append(argv[i]);
-
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-  // Qt5's QCommandLineParser::helpText() dereferences QCoreApplication, but the real
-  // QApplication is built further down (it needs a display); use a display-less app for
-  // the help/version fast paths so they don't crash headless.
-  auto earlyApp = std::make_unique<QCoreApplication>(argc, argv);
-#endif
-
-  CoreArgParser parser(args);
+  CoreArgParser parser(QCoreApplication::arguments());
 
   // Print any parser errors
   if (!parser.errorText().isEmpty()) {
@@ -113,10 +98,6 @@ int main(int argc, char **argv)
     QTextStream(stdout) << parser.versionText();
     return s_exitSuccess;
   }
-
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-  earlyApp.reset();
-#endif
 
   // Before we check any more args we need to check for a duplicate process.
   // Create a shared memory segment with a unique key
@@ -139,9 +120,6 @@ int main(int argc, char **argv)
   const auto processName = QFileInfo(argv[0]).fileName();
 
   App *coreApp = createApp(parser, events, processName);
-
-  QApplication app(argc, argv);
-  QApplication::setApplicationName(QStringLiteral("%1 Core").arg(kAppName));
 
   const auto ipcServer = new deskflow::core::ipc::CoreIpcServer(&app); // NOSONAR - Qt managed
   QObject::connect(

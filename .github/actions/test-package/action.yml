@@ -41,7 +41,7 @@ runs:
             echo "Unknown like: ${{inputs.like}}"
             exit 1
           fi
-          synergy-core --version
+          QT_QPA_PLATFORM=minimal synergy-core --version
 
         else
           echo "Unknown OS: $RUNNER_OS"
