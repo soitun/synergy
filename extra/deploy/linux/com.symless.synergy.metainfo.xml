@@ -35,6 +35,34 @@
 	</branding>
 	<content_rating type="oars-1.0" />
 	<releases>
+		<release version="1.22.2" date="2026-10-12" urgency="medium">
+			<description>
+				<p>
+					A TLS and packaging release. Upgrading from 1.20 now keeps the server's certificate and
+					the computers it trusts, so nothing has to be paired again, and there are new packages
+					for Rocky Linux 10, Fedora 45 and openSUSE Leap 16.
+				</p>
+				<ul>
+					<li>Upgrading from 1.20 keeps the TLS certificate and the trusted fingerprints, so a
+						server keeps its identity and a client still trusts its server.</li>
+					<li>Changing a TLS setting, or choosing an existing certificate file in Settings, no
+						longer replaces the certificate.</li>
+					<li>A client refused for having no TLS certificate is now named in a message, rather
+						than silently failing to connect.</li>
+					<li>The status bar no longer sticks on connecting while the core is connected, and the
+						fingerprint prompt no longer goes missing when the GUI starts before the core.</li>
+					<li>New packages for Rocky Linux 10, Fedora 45, openSUSE Leap 16 and openSUSE
+						Tumbleweed on arm64; Fedora 42, which reached end of life, is no longer built.</li>
+					<li>The downloads page now offers Linux Mint 22, Pop!_OS 24.04, Raspberry Pi OS and
+						CachyOS the package that fits them.</li>
+					<li>The log view stays where you scroll it instead of jumping to the bottom on every
+						new line.</li>
+					<li>Various macOS and Windows fixes and improvements.</li>
+				</ul>
+				<p>See the release notes for the full changelog.</p>
+			</description>
+			<url>https://symless.com/synergy/download</url>
+		</release>
 		<release version="1.22.1" date="2026-10-03" urgency="medium">
 			<description>
 				<p>
