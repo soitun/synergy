@@ -6,7 +6,7 @@
 # Bump these constants to release a new version. An empty stage is a stable release.
 set(SYNERGY_VERSION_MAJOR 1)
 set(SYNERGY_VERSION_MINOR 22)
-set(SYNERGY_VERSION_PATCH 2)
+set(SYNERGY_VERSION_PATCH 3)
 set(SYNERGY_VERSION_STAGE "")
 
 # Composes the full version string by applying SYNERGY_VERSION_RELEASE /
