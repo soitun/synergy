@@ -112,7 +112,7 @@ private:
   void sendClipboardEvent(EventTypes type, ClipboardID id) const;
 
   // message handlers
-  bool onMouseMove(CGEventRef event);
+  bool onMouseMove();
   // mouse button handler.  pressed is true if this is a mousedown
   // event, false if it is a mouseup event.  macButton is the index
   // of the button pressed using the mac button mapping.
@@ -252,10 +252,6 @@ private:
   std::vector<MouseButtonEventMapType> MouseButtonEventMap;
 
   bool m_cursorHidden;
-  CGPoint m_parkedCursor = CGPointZero;
-  int m_warpPendingEvents = 0;
-  int m_rehideAttempts = 0;
-  CGPoint m_warpDelta = CGPointZero;
 
   // keyboard stuff
   OSXKeyState *m_keyState;
@@ -302,7 +298,6 @@ private:
   // global hotkey operating mode
   static bool s_testedForGHOM;
   static bool s_hasGHOM;
-  static constexpr int kWarpPendingEventLimit = 5;
 
   static constexpr double kClipboardPollSeconds = 0.1;
 

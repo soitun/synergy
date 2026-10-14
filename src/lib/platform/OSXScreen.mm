@@ -33,7 +33,6 @@
 #include "platform/OSXPasteboardPeeker.h"
 #include "platform/OSXScreenSaver.h"
 
-#include <AppKit/AppKit.h>
 #include <AppKit/NSEvent.h>
 #include <AvailabilityMacros.h>
 #include <IOKit/hidsystem/event_status_driver.h>
@@ -62,86 +61,10 @@ enum
 
 static const double kCarbonLoopWaitTimeout = 10.0;
 
-// only use these on the main thread: macOS requires that for windows and cursors, and there's no lock
-static NSMutableArray<NSWindow *> *s_cursorShields = nil;
-static NSCursor *s_blankCursor = nil;
-
 // Synthetic mouse button and drag events require event numbers on macOS 27 and later.
 static inline bool needsEventNumber()
 {
   return NSProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 27;
-}
-
-// must be called on the main thread
-static void setBlankCursor()
-{
-  if (s_blankCursor == nil) {
-    NSImage *blank = [[NSImage alloc] initWithSize:NSMakeSize(16, 16)];
-    s_blankCursor = [[NSCursor alloc] initWithImage:blank hotSpot:NSZeroPoint];
-    [blank release];
-  }
-  [s_blankCursor set];
-}
-
-// before the park warp, so the cursor is already blank when it lands at the center
-static void setBlankCursorNow()
-{
-  if (NSThread.isMainThread) {
-    setBlankCursor();
-  } else {
-    dispatch_sync(dispatch_get_main_queue(), ^{
-      setBlankCursor();
-    });
-  }
-}
-
-static void removeCursorShields()
-{
-  for (NSWindow *shield in s_cursorShields) {
-    [shield orderOut:nil];
-  }
-  [s_cursorShields removeAllObjects];
-}
-
-// above everything, dock included, so nothing under the cursor gets hover and the dock can't keep it visible
-static void showCursorShields()
-{
-  dispatch_async(dispatch_get_main_queue(), ^{
-    if (s_cursorShields == nil) {
-      s_cursorShields = [[NSMutableArray alloc] init];
-    }
-    removeCursorShields();
-    for (NSScreen *screen in NSScreen.screens) {
-      NSWindow *shield = [[NSWindow alloc] initWithContentRect:screen.frame
-                                                     styleMask:NSWindowStyleMaskBorderless
-                                                       backing:NSBackingStoreBuffered
-                                                         defer:NO];
-      shield.releasedWhenClosed = NO;
-      shield.opaque = NO;
-      shield.backgroundColor = NSColor.clearColor;
-      shield.hasShadow = NO;
-      shield.ignoresMouseEvents = NO;
-      shield.level = NSScreenSaverWindowLevel;
-      shield.collectionBehavior = NSWindowCollectionBehaviorCanJoinAllSpaces | NSWindowCollectionBehaviorStationary |
-                                  NSWindowCollectionBehaviorFullScreenAuxiliary |
-                                  NSWindowCollectionBehaviorIgnoresCycle;
-      [shield setFrame:screen.frame display:NO];
-      [shield orderFrontRegardless];
-      [s_cursorShields addObject:shield];
-      [shield release];
-    }
-
-    // a blank image rather than a hide, since the dock can refuse the hide
-    setBlankCursor();
-    LOG_DEBUG("cursor shield shown on displays: %lu", (unsigned long)s_cursorShields.count);
-  });
-}
-
-static void hideCursorShields()
-{
-  dispatch_async(dispatch_get_main_queue(), ^{
-    removeCursorShields();
-  });
 }
 
 int getSecureInputEventPID();
@@ -827,7 +750,6 @@ void OSXScreen::enable()
 
 void OSXScreen::disable()
 {
-  hideCursorShields();
   showCursor();
 
   // FIXME -- stop watching jump zones, stop capturing input
@@ -870,11 +792,6 @@ void OSXScreen::enter()
   startClipboardPoll();
 
   if (m_isPrimary) {
-    hideCursorShields();
-    m_rehideAttempts = 0;
-
-    // re-couple the mouse to the cursor, undoing the capture from leave()
-    CGAssociateMouseAndMouseCursorPosition(true);
     setZeroSuppressionInterval();
   } else {
     // reset buttons
@@ -900,44 +817,12 @@ bool OSXScreen::canLeave()
 
 void OSXScreen::leave()
 {
-  if (m_isPrimary) {
-    CGEventRef exitEvent = CGEventCreate(nullptr);
-    const CGPoint exit = CGEventGetLocation(exitEvent);
-    CFRelease(exitEvent);
-
-    setBlankCursorNow();
-
-    // move off the dock before the shield covers it, or the dock stays magnified
-    m_parkedCursor = CGPointMake(m_xCenter, m_yCenter);
-    CGWarpMouseCursorPosition(m_parkedCursor);
-
-    // a warp sends no event, and the dock only lets go of the cursor (and unmagnifies) when it sees one leave it.
-    // posted below our hid tap, so onMouseMove never sees it
-    CGEventRef parkMove = CGEventCreateMouseEvent(nullptr, kCGEventMouseMoved, m_parkedCursor, kCGMouseButtonLeft);
-    CGEventPost(kCGSessionEventTap, parkMove);
-    CFRelease(parkMove);
-
-    // the next event's raw delta includes the warp distance, which would bounce back onto this computer
-    m_warpDelta = CGPointMake(m_parkedCursor.x - exit.x, m_parkedCursor.y - exit.y);
-    m_warpPendingEvents = kWarpPendingEventLimit;
-    LOG_DEBUG(
-        "parking cursor, exit: %.2f,%.2f, park: %.0f,%.0f, warp: %+.2f,%+.2f", exit.x, exit.y, m_parkedCursor.x,
-        m_parkedCursor.y, m_warpDelta.x, m_warpDelta.y
-    );
-
-    showCursorShields();
-    m_rehideAttempts = 1;
-  }
-
   hideCursor();
 
   if (m_isPrimary) {
     avoidHesitatingCursor();
-
-    // capture the mouse: freeze the cursor so no local app sees motion while on
-    // a client (onMouseMove reads raw deltas instead). must follow hideCursor(),
-    // which re-associates. re-coupled in enter()/disable().
-    CGAssociateMouseAndMouseCursorPosition(false);
+    LOG_VERBOSE("centering cursor on leave: %+d, %+d", m_xCenter, m_yCenter);
+    warpCursor(m_xCenter, m_yCenter);
   }
 
   // a copy made since the last poll would otherwise wait until the pointer comes back
@@ -1125,87 +1010,64 @@ void OSXScreen::handleSystemEvent(const Event &event)
   }
 }
 
-bool OSXScreen::onMouseMove(CGEventRef event)
+bool OSXScreen::onMouseMove()
 {
+  // when we receive a mouse-move event, it is possible it was queued for a period
+  // and that the mouse has already moved again since then.  to handle this, we need
+  // to query the current mouse position rather than using the position in the event.
+  CGEventRef event = CGEventCreate(NULL);
+  CGPoint pos = CGEventGetLocation(event);
+  CFRelease(event);
+  CGFloat mx = pos.x;
+  CGFloat my = pos.y;
+
+  LOG_VERBOSE("mouse move %+f,%+f", mx, my);
+
+  CGFloat x = mx - m_xCursor;
+  CGFloat y = my - m_yCursor;
+
+  if ((x == 0 && y == 0) || (mx == m_xCenter && mx == m_yCenter)) {
+    return true;
+  }
+
+  // save position to compute delta of next motion
+  m_xCursor = (int32_t)mx;
+  m_yCursor = (int32_t)my;
+
   if (m_isOnScreen) {
-    // motion on primary screen.  the event may have been queued a while, so
-    // query the live cursor position rather than the stale event position.
-    CGEventRef posEvent = CGEventCreate(NULL);
-    CGPoint pos = CGEventGetLocation(posEvent);
-    CFRelease(posEvent);
-    CGFloat mx = pos.x;
-    CGFloat my = pos.y;
-
-    LOG_VERBOSE("mouse move %+f,%+f", mx, my);
-
-    if (mx <= m_x || my <= m_y || mx >= m_x + m_w - 1 || my >= m_y + m_h - 1) {
-      LOG_DEBUG(
-          "mouse at edge, pos: %.2f,%.2f, raw delta: %+lld,%+lld", mx, my,
-          CGEventGetIntegerValueField(event, kCGMouseEventDeltaX),
-          CGEventGetIntegerValueField(event, kCGMouseEventDeltaY)
-      );
-    }
-
-    CGFloat x = mx - m_xCursor;
-    CGFloat y = my - m_yCursor;
-
-    if ((x == 0 && y == 0) || (mx == m_xCenter && mx == m_yCenter)) {
-      return true;
-    }
-
-    m_xCursor = (int32_t)mx;
-    m_yCursor = (int32_t)my;
-
+    // motion on primary screen
     sendEvent(EventTypes::PrimaryScreenMotionOnPrimary, MotionInfo::alloc(m_xCursor, m_yCursor));
   } else {
-    // motion on secondary screen.  the cursor is frozen (see leave()), so read
-    // raw deltas from the event instead of diffing position.
-    int32_t dx = (int32_t)CGEventGetIntegerValueField(event, kCGMouseEventDeltaX);
-    int32_t dy = (int32_t)CGEventGetIntegerValueField(event, kCGMouseEventDeltaY);
+    // motion on secondary screen.  warp mouse back to
+    // center.
+    warpCursor(m_xCenter, m_yCenter);
 
-    LOG_VERBOSE("mouse delta %+d,%+d", dx, dy);
+    // examine the motion.  if it's about the distance
+    // from the center of the screen to an edge then
+    // it's probably a bogus motion that we want to
+    // ignore (see warpCursorNoFlush() for a further
+    // description).
+    static int32_t bogusZoneSize = 10;
+    if (-x + bogusZoneSize > m_xCenter - m_x || x + bogusZoneSize > m_x + m_w - m_xCenter ||
+        -y + bogusZoneSize > m_yCenter - m_y || y + bogusZoneSize > m_y + m_h - m_yCenter) {
+      LOG_DEBUG("dropped bogus motion %+d,%+d", x, y);
+    } else {
+      // send motion
+      // Accumulate together the move into the running total
+      static CGFloat m_xFractionalMove = 0;
+      static CGFloat m_yFractionalMove = 0;
 
-    // the capture can be undone by a foreground app, so pin the cursor if it drifts
-    CGEventRef liveEvent = CGEventCreate(nullptr);
-    const CGPoint live = CGEventGetLocation(liveEvent);
-    CFRelease(liveEvent);
-    if (live.x != m_parkedCursor.x || live.y != m_parkedCursor.y) {
-      LOG_DEBUG("cursor drifted while away, pinning: %+f,%+f", live.x, live.y);
-      CGWarpMouseCursorPosition(m_parkedCursor);
-      CGAssociateMouseAndMouseCursorPosition(false);
-      m_warpDelta = CGPointMake(m_parkedCursor.x - live.x, m_parkedCursor.y - live.y);
-      m_warpPendingEvents = kWarpPendingEventLimit;
-    }
+      m_xFractionalMove += x;
+      m_yFractionalMove += y;
 
-    // the dock refuses the hide in leave(), and keeps refusing for a while after a slow approach
-    if (m_rehideAttempts > 0) {
-      CGDisplayShowCursor(m_displayID);
-      CGDisplayHideCursor(m_displayID);
-      if (!CGCursorIsVisible()) {
-        LOG_DEBUG("re-hid cursor after parking, attempts: %d", m_rehideAttempts);
-        m_rehideAttempts = 0;
-      } else {
-        m_rehideAttempts++;
-      }
-    }
+      // Return the integer part
+      int32_t intX = (int32_t)m_xFractionalMove;
+      int32_t intY = (int32_t)m_yFractionalMove;
 
-    // usually the first event after the warp carries it, but not always, so only remove it from one that looks like it
-    if (m_warpPendingEvents > 0) {
-      const auto realDx = dx - (int32_t)lround(m_warpDelta.x);
-      const auto realDy = dy - (int32_t)lround(m_warpDelta.y);
-      if (abs(realDx) + abs(realDy) < abs(dx) + abs(dy)) {
-        LOG_DEBUG("removing park warp from mouse delta: %+d,%+d, remaining: %+d,%+d", dx, dy, realDx, realDy);
-        dx = realDx;
-        dy = realDy;
-        m_warpPendingEvents = 0;
-      } else {
-        m_warpPendingEvents--;
-        LOG_DEBUG("mouse delta without park warp: %+d,%+d, events left to wait: %d", dx, dy, m_warpPendingEvents);
-      }
-    }
-
-    if (dx != 0 || dy != 0) {
-      sendEvent(EventTypes::PrimaryScreenMotionOnSecondary, MotionInfo::alloc(dx, dy));
+      // And keep only the fractional part
+      m_xFractionalMove -= intX;
+      m_yFractionalMove -= intY;
+      sendEvent(EventTypes::PrimaryScreenMotionOnSecondary, MotionInfo::alloc(intX, intY));
     }
   }
 
@@ -1880,9 +1742,15 @@ CGEventRef OSXScreen::handleCGInputEvent(CGEventTapProxy proxy, CGEventType type
   case kCGEventRightMouseDragged:
   case kCGEventOtherMouseDragged:
   case kCGEventMouseMoved:
-    // off-screen the cursor is frozen (see leave()), so fall through to consume
-    // the move below instead of returning (leaking) it to local apps.
-    screen->onMouseMove(event);
+    // we intentionally ignore the position in the event here as the events are
+    // queued and will no longer be accurate when we process them.
+    screen->onMouseMove();
+
+    // The system ignores our cursor-centering calls if
+    // we don't return the event. This should be harmless,
+    // but might register as slight movement to other apps
+    // on the system. It hasn't been a problem before, though.
+    return event;
     break;
   case kCGEventScrollWheel:
     screen->onMouseWheel(
