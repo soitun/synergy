@@ -26,6 +26,7 @@
 #include "synergy/gui/constants.h"
 #include "synergy/gui/dev_mode.h"
 #include "synergy/gui/license/license_utils.h"
+#include "synergy/gui/website_urls.h"
 #include "synergy/license/OfflineActivation.h"
 #include "synergy/license/Product.h"
 
@@ -385,7 +386,7 @@ bool LicenseHandler::showOfflineActivationDialog()
         tr("<p>A unique ID for this computer could not be determined, "
            "so an activation code cannot be generated.</p>"
            R"(<p>Please <a href="%1">contact us</a> for help.</p>)")
-            .arg(kUrlContact)
+            .arg(contactUrl())
     );
     return false;
   }
@@ -607,11 +608,11 @@ void LicenseHandler::handleActivationFailed(const QString &message, const QStrin
   auto text = QStringLiteral("<p>%1</p>").arg(message.toHtmlEscaped());
   if (limitReached) {
     text +=
-        tr(R"(<p>Free an activation on your <a href="%1">account page</a>, then start again.</p>)").arg(kUrlAccount);
+        tr(R"(<p>Free an activation on your <a href="%1">account page</a>, then start again.</p>)").arg(accountUrl());
   } else {
-    text += tr(R"(<p>Check your license and serial key on your <a href="%1">account page</a>.</p>)").arg(kUrlAccount);
+    text += tr(R"(<p>Check your license and serial key on your <a href="%1">account page</a>.</p>)").arg(accountUrl());
   }
-  text += tr(R"(<p>If you need help, please <a href="%1">contact us</a>.</p>)").arg(kUrlContact);
+  text += tr(R"(<p>If you need help, please <a href="%1">contact us</a>.</p>)").arg(contactUrl());
   if (!reference.isEmpty()) {
     text += tr("<p>License reference: <code>%1</code></p>").arg(reference.toHtmlEscaped());
   }

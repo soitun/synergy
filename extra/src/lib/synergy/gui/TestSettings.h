@@ -58,6 +58,10 @@ public:
   {
     return m_apiUrlBase;
   }
+  QString websiteUrlBase() const
+  {
+    return m_websiteUrlBase;
+  }
   QString machineId() const
   {
     return m_machineId;
@@ -102,6 +106,7 @@ private:
   bool m_licensing = false;
   QString m_serialKey;
   QString m_apiUrlBase;
+  QString m_websiteUrlBase;
   QString m_machineId;
   qint64 m_startTimeEpochSecs = 0;
   QString m_lockedSettingsFile;

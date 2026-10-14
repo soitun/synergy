@@ -20,10 +20,10 @@
 #include "CancelActivationDialog.h"
 #include "common/Settings.h"
 #include "synergy/gui/TestSettings.h"
-#include "synergy/gui/constants.h"
 #include "synergy/gui/license/LicenseHandler.h"
 #include "synergy/gui/license/license_notices.h"
 #include "synergy/gui/styles.h"
+#include "synergy/gui/website_urls.h"
 #include "synergy/license/parse_serial_key.h"
 #include "ui_ActivationDialog.h"
 
@@ -49,6 +49,14 @@ ActivationDialog::ActivationDialog(QWidget *parent, LicenseHandler &licenseHandl
       m_licenseHandler(licenseHandler)
 {
   m_ui->setupUi(this);
+
+  m_ui->label_5->setText(
+      tr(R"(<p>Your serial key is on your <a href="%1" style="color:#4285f4;">account</a> page.<br/>)"
+         R"(Don't have a license? <a href="%2" style="color:#4285f4;">Purchase</a> today.</p>)"
+         R"(<p>Have a license and an air‑gapped network? )"
+         R"(<a href="%3" style="color:#4285f4;">Request an offline key</a></p>)")
+          .arg(accountUrl(), purchaseUrl(), contactUrl())
+  );
 
   m_ui->m_pLabelNotice->setStyleSheet(kStyleNoticeLabel);
   m_ui->m_pTextEditSerialKey->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
@@ -172,7 +180,7 @@ void ActivationDialog::showResultDialog(LicenseHandler::SetSerialKeyResult resul
             "Invalid serial key. "
             R"(Please <a href="%1">contact us</a> for help.)"
         )
-            .arg(kUrlContact)
+            .arg(contactUrl())
     );
     break;
 
@@ -183,7 +191,7 @@ void ActivationDialog::showResultDialog(LicenseHandler::SetSerialKeyResult resul
             "Sorry, that serial key has expired. "
             R"(Please <a href="%1">renew</a> your license.)"
         )
-            .arg(kUrlContact)
+            .arg(contactUrl())
     );
     break;
 
@@ -227,7 +235,7 @@ void ActivationDialog::showErrorDialog(const QString &message)
                             "and provide the following information:</p>"
                             "%2"
   )
-                            .arg(kUrlContact)
+                            .arg(contactUrl())
                             .arg(message);
   QMessageBox::warning(this, problemTitle, fullMessage);
 }

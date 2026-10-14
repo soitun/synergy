@@ -25,6 +25,7 @@
 #include "synergy/gui/UpdateChannel.h"
 #include "synergy/gui/constants.h"
 #include "synergy/gui/styles.h"
+#include "synergy/gui/website_urls.h"
 
 #include <QAction>
 #include <QApplication>
@@ -211,7 +212,7 @@ void FeatureHandler::addLicenseLinks(QDialog *parent) const
 {
   // Upstream shows only the GPL link; add the EULA alongside it.
   if (auto *linkGpl = parent->findChild<QLabel *>(QStringLiteral("linkGpl"))) {
-    const auto eula = QString(kLink).arg(kUrlEula, kColorSecondary, QObject::tr("End User License Agreement"));
+    const auto eula = QString(kLink).arg(eulaUrl(), kColorSecondary, QObject::tr("End User License Agreement"));
     const auto gpl = QString(kLink).arg(kUrlGpl, kColorSecondary, QObject::tr("License: GNU GPL Version 2"));
     linkGpl->setText(QStringLiteral("%1&nbsp;&nbsp;|&nbsp;&nbsp;%2").arg(eula, gpl));
   }

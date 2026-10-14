@@ -17,8 +17,8 @@
 
 #include "OfflineActivationDialog.h"
 
-#include "synergy/gui/constants.h"
 #include "synergy/gui/license/LicenseHandler.h"
+#include "synergy/gui/website_urls.h"
 
 #include <QDialogButtonBox>
 #include <QFormLayout>
@@ -42,7 +42,7 @@ OfflineActivationDialog::OfflineActivationDialog(QWidget *parent, LicenseHandler
   const auto infoLabel = new QLabel(
       tr(R"(On a device with internet access, enter the activation code at )"
          R"(<a href="%1">your account page</a> to get a response code.)")
-          .arg(kUrlAccount),
+          .arg(accountUrl()),
       this
   );
   infoLabel->setWordWrap(true);
@@ -85,7 +85,7 @@ void OfflineActivationDialog::accept()
            "<p>Please check that you typed the whole response code correctly, and that "
            "the activation code was generated on this computer. "
            R"(If the problem persists, please <a href="%1">contact us</a>.</p>)")
-            .arg(kUrlContact)
+            .arg(contactUrl())
     );
     return;
   }

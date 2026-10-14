@@ -24,20 +24,17 @@
 namespace synergy::gui {
 
 const auto kUrlApi = "https://symless.com/synergy/api";
-const auto kUrlWebsite = QStringLiteral("https://synergyapp.io");
+const auto kUrlApiStaging = "https://staging.symless.com/synergy/api";
+const auto kUrlWebsite = "https://symless.com/synergy";
+const auto kUrlWebsiteStaging = "https://staging.symless.com/synergy";
 const auto kUrlSourceQuery = "utm_source=gui-s1";
 
 const auto kUrlGpl = QStringLiteral("https://www.gnu.org/licenses/old-licenses/gpl-2.0.html");
-const auto kUrlEula = QString("%1/eula").arg(kUrlWebsite);
 
 const auto kLink = R"(<a href="%1" style="color: %2">%3</a>)";
 const auto kLinkBuy = R"(<a href="%1" style="color: %2">Buy now</a>)";
 const auto kLinkRenew = R"(<a href="%1" style="color: %2">Renew now</a>)";
 const auto kLinkDownload = R"(<a href="%1" style="color: %2">Download now</a>)";
-
-const auto kUrlPersonalUpgrade = QString("%1/purchase/upgrade?%2").arg(kUrlWebsite, kUrlSourceQuery);
-const auto kUrlContact = QString("%1/contact?%2").arg(kUrlWebsite, kUrlSourceQuery);
-const auto kUrlAccount = QString("%1/account?%2").arg(kUrlWebsite, kUrlSourceQuery);
 
 constexpr auto kUsageReportInterval = std::chrono::hours{24};
 

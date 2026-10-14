@@ -18,6 +18,7 @@
 #include "license_notices.h"
 
 #include "constants.h"
+#include "synergy/gui/website_urls.h"
 #include "synergy/license/License.h"
 
 using License = synergy::license::License;
@@ -41,7 +42,7 @@ QString licenseNotice(const License &license, const QString &linkColor)
 
 QString trialLicenseNotice(const License &license, const QString &linkColor)
 {
-  const QString buyLink = QString(kLinkBuy).arg(kUrlContact).arg(linkColor);
+  const QString buyLink = QString(kLinkBuy).arg(contactUrl()).arg(linkColor);
   if (license.isExpired()) {
     return QString("<p>Your trial has ended. %1</p>").arg(buyLink);
   } else {
@@ -59,7 +60,7 @@ QString trialLicenseNotice(const License &license, const QString &linkColor)
 
 QString subscriptionLicenseNotice(const License &license, const QString &linkColor)
 {
-  const QString renewLink = QString(kLinkRenew).arg(kUrlContact).arg(linkColor);
+  const QString renewLink = QString(kLinkRenew).arg(contactUrl()).arg(linkColor);
   if (license.isExpired()) {
     return QString("<p>Your license has expired. %1</p>").arg(renewLink);
   } else {

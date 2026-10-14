@@ -17,8 +17,7 @@
 
 #include "LicenseApiClient.h"
 
-#include "synergy/gui/TestSettings.h"
-#include "synergy/gui/constants.h"
+#include "synergy/gui/website_urls.h"
 
 #include <QDebug>
 #include <QJsonDocument>
@@ -35,20 +34,14 @@ constexpr auto kPropRequestKind = "requestKind";
 // the request falls through to the legacy unmetered path and nothing is enforced.
 constexpr int kActivationProtocolVersion = 1;
 
-QString apiBaseUrl()
-{
-  const auto testBase = TestSettings::instance().apiUrlBase();
-  return testBase.isEmpty() ? QString::fromUtf8(kUrlApi) : testBase;
-}
-
 QString activateUrl()
 {
-  return QStringLiteral("%1/product/activate").arg(apiBaseUrl());
+  return QStringLiteral("%1/product/activate").arg(apiUrl());
 }
 
 QString usageUrl()
 {
-  return QStringLiteral("%1/product/usage").arg(apiBaseUrl());
+  return QStringLiteral("%1/product/usage").arg(apiUrl());
 }
 
 } // namespace
